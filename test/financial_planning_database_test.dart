@@ -179,4 +179,82 @@ void main() {
       expect(march.expectedDate, DateTime(2026, 3, 31));
     },
   );
+
+  test(
+    'dashboard summarizes only current-month income and eligible expenses',
+    () async {
+      final accountId = await addAccount();
+      final categoryId = await database
+          .into(database.categories)
+          .insert(
+            CategoriesCompanion.insert(
+              name: 'Продукты',
+              type: 'EXPENSE',
+              color: const Value(0xFF00AA00),
+            ),
+          );
+
+      Future<void> addTransaction({
+        required String type,
+        required int amount,
+        required DateTime date,
+        int? category,
+        bool excluded = false,
+      }) async {
+        await database
+            .into(database.transactions)
+            .insert(
+              TransactionsCompanion.insert(
+                accountId: accountId,
+                categoryId: Value(category),
+                type: type,
+                amount: amount,
+                transactionDate: date,
+                isExcludedFromStatistics: Value(excluded),
+              ),
+            );
+      }
+
+      await addTransaction(
+        type: 'EXPENSE',
+        amount: 2000,
+        date: today,
+        category: categoryId,
+      );
+      await addTransaction(type: 'EXPENSE', amount: 3000, date: today);
+      await addTransaction(type: 'INCOME', amount: 50000, date: today);
+      await addTransaction(type: 'TRANSFER', amount: 80000, date: today);
+      await addTransaction(
+        type: 'EXPENSE',
+        amount: 9000,
+        date: today,
+        excluded: true,
+      );
+      await addTransaction(
+        type: 'EXPENSE',
+        amount: 7000,
+        date: DateTime(2026, 10, 31),
+      );
+      await planning.createRecurringPayment(
+        name: 'Интернет',
+        amount: 12000,
+        frequency: 'MONTHLY',
+        startDate: DateTime(2026, 11, 4),
+      );
+      await planning.generateOccurrences(now: today);
+
+      final data = await planning.getDashboardData(now: today);
+
+      expect(data.monthIncome, 50000);
+      expect(data.monthExpense, 5000);
+      expect(data.categorySpending, hasLength(2));
+      expect(data.categorySpending.first.name, 'Без категории');
+      expect(data.categorySpending.first.amount, 3000);
+      expect(data.categorySpending.last.name, 'Продукты');
+      expect(data.categorySpending.last.color, 0xFF00AA00);
+      expect(data.recentTransactions, hasLength(5));
+      expect(data.upcomingPayments, hasLength(1));
+      expect(data.upcomingPayments.single.name, 'Интернет');
+    },
+  );
 }

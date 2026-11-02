@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../accounts/presentation/account_dialog.dart';
 import '../../../core/database/app_database.dart';
 import '../domain/financial_planning_service.dart';
 import '../planning_providers.dart';
@@ -249,13 +250,8 @@ Future<void> _payOccurrence(
 ) async {
   final service = ref.read(financialPlanningServiceProvider);
   try {
-    final accounts = await service.getActiveAccounts();
+    final account = await _getAccountForAction(context, ref);
     if (!context.mounted) return;
-    if (accounts.isEmpty) {
-      _showMessage(context, 'Сначала добавьте активный счет');
-      return;
-    }
-    final account = await _chooseAccount(context, accounts);
     if (account == null || !context.mounted) return;
     final amount = await _amountDialog(
       context,
@@ -283,13 +279,8 @@ Future<void> _receiveIncome(
 ) async {
   final service = ref.read(financialPlanningServiceProvider);
   try {
-    final accounts = await service.getActiveAccounts();
+    final account = await _getAccountForAction(context, ref);
     if (!context.mounted) return;
-    if (accounts.isEmpty) {
-      _showMessage(context, 'Сначала добавьте активный счет');
-      return;
-    }
-    final account = await _chooseAccount(context, accounts);
     if (account == null || !context.mounted) return;
     await service.receiveIncome(
       schedule: schedule,
@@ -303,6 +294,43 @@ Future<void> _receiveIncome(
       _showMessage(context, 'Не удалось записать доход: $error');
     }
   }
+}
+
+Future<Account?> _getAccountForAction(
+  BuildContext context,
+  WidgetRef ref,
+) async {
+  final service = ref.read(financialPlanningServiceProvider);
+  var accounts = await service.getActiveAccounts();
+  if (!context.mounted) return null;
+  if (accounts.isEmpty) {
+    final createAccount = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Нужен активный счет'),
+        content: const Text(
+          'Создайте счет, чтобы записать поступление или оплату обязательства.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Отмена'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(context, true),
+            icon: const Icon(Icons.add),
+            label: const Text('Создать счет'),
+          ),
+        ],
+      ),
+    );
+    if (createAccount != true || !context.mounted) return null;
+    await showCreateAccountDialog(context, ref);
+    if (!context.mounted) return null;
+    accounts = await service.getActiveAccounts();
+  }
+  if (accounts.isEmpty || !context.mounted) return null;
+  return _chooseAccount(context, accounts);
 }
 
 Future<void> _editOccurrence(

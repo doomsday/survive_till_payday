@@ -66,6 +66,55 @@ class FinanceSnapshot {
   final int? dailySafeToSpend;
 }
 
+class CategorySpending {
+  const CategorySpending({
+    required this.name,
+    required this.color,
+    required this.amount,
+  });
+
+  final String name;
+  final int color;
+  final int amount;
+}
+
+class DashboardTransaction {
+  const DashboardTransaction({
+    required this.transaction,
+    required this.accountName,
+    required this.categoryName,
+    required this.categoryColor,
+  });
+
+  final Transaction transaction;
+  final String accountName;
+  final String? categoryName;
+  final int? categoryColor;
+}
+
+class DashboardPayment {
+  const DashboardPayment({required this.occurrence, required this.name});
+
+  final PaymentOccurrence occurrence;
+  final String name;
+}
+
+class DashboardData {
+  const DashboardData({
+    required this.monthIncome,
+    required this.monthExpense,
+    required this.categorySpending,
+    required this.recentTransactions,
+    required this.upcomingPayments,
+  });
+
+  final int monthIncome;
+  final int monthExpense;
+  final List<CategorySpending> categorySpending;
+  final List<DashboardTransaction> recentTransactions;
+  final List<DashboardPayment> upcomingPayments;
+}
+
 FinanceSnapshot calculateFinanceSnapshot({
   required int currentBalance,
   required int expectedIncome,
@@ -140,6 +189,116 @@ class FinancialPlanningService {
         )
         .watch()
         .asyncMap((_) => getSnapshot());
+  }
+
+  Stream<DashboardData> watchDashboardData() async* {
+    yield* db
+        .customSelect(
+          'SELECT 1',
+          readsFrom: {
+            db.transactions,
+            db.categories,
+            db.accounts,
+            db.paymentOccurrences,
+            db.recurringPayments,
+          },
+        )
+        .watch()
+        .asyncMap((_) => getDashboardData());
+  }
+
+  Future<DashboardData> getDashboardData({DateTime? now}) async {
+    final today = calendarDate(now ?? DateTime.now());
+    final monthStart = DateTime(today.year, today.month);
+    final nextMonth = DateTime(today.year, today.month + 1);
+    final currentMonthTransactions =
+        await (db.select(db.transactions)..where(
+              (row) =>
+                  row.transactionDate.isBiggerOrEqualValue(monthStart) &
+                  row.transactionDate.isSmallerThanValue(nextMonth) &
+                  row.isExcludedFromStatistics.equals(false) &
+                  row.type.isIn(['INCOME', 'EXPENSE']),
+            ))
+            .get();
+    var monthIncome = 0;
+    var monthExpense = 0;
+    final spendingByCategory = <int?, int>{};
+    for (final transaction in currentMonthTransactions) {
+      if (transaction.type == 'INCOME') {
+        monthIncome += transaction.amount;
+      } else if (transaction.type == 'EXPENSE') {
+        monthExpense += transaction.amount;
+        spendingByCategory.update(
+          transaction.categoryId,
+          (amount) => amount + transaction.amount,
+          ifAbsent: () => transaction.amount,
+        );
+      }
+    }
+
+    final categories = await db.select(db.categories).get();
+    final categoryById = {
+      for (final category in categories) category.id: category,
+    };
+    final categorySpending = [
+      for (final entry in spendingByCategory.entries)
+        CategorySpending(
+          name: categoryById[entry.key]?.name ?? 'Без категории',
+          color: categoryById[entry.key]?.color ?? 0xFF607D8B,
+          amount: entry.value,
+        ),
+    ]..sort((a, b) => b.amount.compareTo(a.amount));
+
+    final accounts = await db.select(db.accounts).get();
+    final accountById = {for (final account in accounts) account.id: account};
+    final recent =
+        await (db.select(db.transactions)
+              ..orderBy([(row) => OrderingTerm.desc(row.transactionDate)])
+              ..limit(5))
+            .get();
+    final recentTransactions = [
+      for (final transaction in recent)
+        DashboardTransaction(
+          transaction: transaction,
+          accountName: accountById[transaction.accountId]?.name ?? 'Счет',
+          categoryName: categoryById[transaction.categoryId]?.name,
+          categoryColor: categoryById[transaction.categoryId]?.color,
+        ),
+    ];
+
+    final payments =
+        await (db.select(db.paymentOccurrences)
+              ..where(
+                (row) =>
+                    row.status.isIn(['UPCOMING', 'PARTIALLY_PAID', 'OVERDUE']) &
+                    row.dueDate.isBiggerOrEqualValue(
+                      today.subtract(const Duration(days: 30)),
+                    ) &
+                    row.dueDate.isSmallerThanValue(
+                      DateTime(today.year, today.month, today.day + 31),
+                    ),
+              )
+              ..orderBy([(row) => OrderingTerm.asc(row.dueDate)])
+              ..limit(5))
+            .get();
+    final recurring = await db.select(db.recurringPayments).get();
+    final paymentNames = {
+      for (final payment in recurring) payment.id: payment.name,
+    };
+    final upcomingPayments = [
+      for (final payment in payments)
+        DashboardPayment(
+          occurrence: payment,
+          name: paymentNames[payment.recurringPaymentId] ?? 'Платеж',
+        ),
+    ];
+    return DashboardData(
+      monthIncome: monthIncome,
+      monthExpense: monthExpense,
+      categorySpending: categorySpending,
+      recentTransactions: recentTransactions,
+      upcomingPayments: upcomingPayments,
+    );
   }
 
   Future<FinanceSnapshot> getSnapshot({DateTime? now}) async {
@@ -678,6 +837,16 @@ class FinancialPlanningService {
       (db.select(db.accounts)
             ..where((account) => account.isActive)
             ..orderBy([(account) => OrderingTerm.asc(account.name)]))
+          .get();
+
+  Future<List<Category>> getExpenseCategories() =>
+      (db.select(db.categories)
+            ..where(
+              (category) =>
+                  category.type.equals('EXPENSE') &
+                  category.isArchived.equals(false),
+            )
+            ..orderBy([(category) => OrderingTerm.asc(category.name)]))
           .get();
 
   Future<void> addManualExpense({

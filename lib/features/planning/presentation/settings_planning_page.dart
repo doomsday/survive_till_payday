@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../accounts/presentation/account_dialog.dart';
 import '../planning_providers.dart';
 
 class PlanningSettingsPage extends ConsumerStatefulWidget {
@@ -57,6 +58,8 @@ class _PlanningSettingsPageState extends ConsumerState<PlanningSettingsPage> {
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            const AccountsSettingsSection(),
+            const SizedBox(height: 24),
             Text(
               'Следующая зарплата',
               style: Theme.of(context).textTheme.titleLarge,

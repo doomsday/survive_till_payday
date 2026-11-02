@@ -15,7 +15,7 @@ import 'package:survive_till_payday/core/database/app_database.dart';
 import 'package:survive_till_payday/core/database/database_provider.dart';
 
 void main() {
-  testWidgets('Payday foundation opens the dashboard', (
+  testWidgets('Payday dashboard opens with financial planning sections', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -32,8 +32,24 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Payday'), findsOneWidget);
+    expect(find.text('Можно потратить до зарплаты'), findsOneWidget);
     expect(find.text('Обзор'), findsWidgets);
+    final dashboardScroll = find.descendant(
+      of: find.byType(ListView).first,
+      matching: find.byType(Scrollable),
+    );
+    await tester.scrollUntilVisible(
+      find.text('Ближайшие платежи'),
+      400,
+      scrollable: dashboardScroll,
+    );
+    expect(find.text('Ближайшие платежи'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Последние операции'),
+      400,
+      scrollable: dashboardScroll,
+    );
+    expect(find.text('Последние операции'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));

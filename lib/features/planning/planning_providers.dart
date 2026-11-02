@@ -14,6 +14,10 @@ final financeSnapshotProvider = StreamProvider<FinanceSnapshot>((ref) {
   return ref.watch(financialPlanningServiceProvider).watchSnapshot();
 });
 
+final dashboardDataProvider = StreamProvider<DashboardData>((ref) {
+  return ref.watch(financialPlanningServiceProvider).watchDashboardData();
+});
+
 final paymentOccurrencesProvider = StreamProvider<List<PaymentOccurrence>>(
   (ref) => ref.watch(financialPlanningServiceProvider).watchOccurrences(),
 );

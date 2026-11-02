@@ -16,6 +16,12 @@ required.
   `Safe to Spend = active balances + expected income - unpaid obligations - reserve`
   for the current payday cycle, along with a non-negative daily limit.
 - Add a quick expense from the dashboard.
+- Create bank or cash accounts in Settings with their starting balance. When
+  recording an income or payment without an account, the app offers to create
+  one and then continues the operation.
+- The dashboard highlights Safe to Spend, daily limit and payday, monthly income
+  and spending, upcoming or overdue obligations, category spending, and the
+  latest transactions.
 
 ## Development
 
