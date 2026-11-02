@@ -2,6 +2,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart';
 import 'package:survive_till_payday/app/app.dart';
 import 'package:survive_till_payday/core/database/app_database.dart';
 import 'package:survive_till_payday/core/database/database_provider.dart';
@@ -22,6 +23,16 @@ void main() {
             expectedDate: DateTime(today.year, today.month, today.day),
           ),
         );
+    await database
+        .into(database.recurringPayments)
+        .insert(
+          RecurringPaymentsCompanion.insert(
+            name: 'Интернет',
+            amount: 5000,
+            frequency: 'MONTHLY',
+            startDate: DateTime(today.year, today.month, today.day),
+          ),
+        );
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -36,6 +47,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Платежи').last);
     await tester.pumpAndSettle();
+
+    expect(find.text('Ближайшие обязательства'), findsNothing);
+    expect(
+      find.text('Следующий платеж: ${DateFormat('dd.MM.yyyy').format(today)}'),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byTooltip('Отметить полученным'));
     await tester.pumpAndSettle();

@@ -19,7 +19,6 @@ class PaymentsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final service = ref.watch(financialPlanningServiceProvider);
     final occurrences = ref.watch(paymentOccurrencesProvider);
     final schedules = ref.watch(recurringPaymentsProvider);
     final incomes = ref.watch(incomeSchedulesProvider);
@@ -57,68 +56,28 @@ class PaymentsPage extends ConsumerWidget {
                 ? const _EmptyMessage('Регулярных платежей пока нет')
                 : Column(
                     children: [
-                      for (final item in items)
-                        Card(
-                          child: ListTile(
-                            title: Text(item.name),
-                            subtitle: Text(
-                              '${_money.format(item.amount)} · ${frequencyLabel(parseFrequency(item.frequency))}',
-                            ),
-                            leading: const CircleAvatar(
-                              child: Icon(Icons.event_repeat_outlined),
-                            ),
-                            trailing: IconButton(
-                              tooltip: 'Изменить расписание',
-                              icon: const Icon(Icons.edit_outlined),
-                              onPressed: () =>
-                                  _createSchedule(context, ref, false, item),
-                            ),
-                          ),
+                      for (final item in items) ...[
+                        _RecurringPaymentTile(
+                          payment: item,
+                          nextOccurrence: occurrences.value
+                              ?.where(
+                                (occurrence) =>
+                                    occurrence.recurringPaymentId == item.id &&
+                                    occurrence.status != 'PAID' &&
+                                    occurrence.status != 'CANCELLED',
+                              )
+                              .firstOrNull,
+                          onEditSchedule: () =>
+                              _createSchedule(context, ref, false, item),
+                          onPay: (occurrence) =>
+                              _payOccurrence(context, ref, occurrence),
+                          onEditOccurrence: (occurrence) =>
+                              _editOccurrence(context, ref, occurrence),
+                          onCancelOccurrence: (occurrence) =>
+                              _cancelOccurrence(context, ref, occurrence),
                         ),
+                      ],
                     ],
-                  ),
-          ),
-          const SizedBox(height: 16),
-          const _SectionHeader(title: 'Ближайшие обязательства'),
-          occurrences.when(
-            loading: _loading,
-            error: (error, _) => _error(error),
-            data: (items) => items.isEmpty
-                ? const _EmptyMessage('Будущих обязательств пока нет')
-                : FutureBuilder<List<RecurringPayment>>(
-                    future: service.getRecurringPayments(),
-                    builder: (context, templates) {
-                      if (templates.hasError) return _error(templates.error!);
-                      if (!templates.hasData) return _loading();
-                      final names = {
-                        for (final payment in templates.data!)
-                          payment.id: payment.name,
-                      };
-                      return Column(
-                        children: [
-                          for (final item in items)
-                            _OccurrenceCard(
-                              occurrence: item,
-                              name: names[item.recurringPaymentId] ?? 'Платеж',
-                              onPay:
-                                  item.status == 'PAID' ||
-                                      item.status == 'CANCELLED'
-                                  ? null
-                                  : () => _payOccurrence(context, ref, item),
-                              onEdit:
-                                  item.status == 'PAID' ||
-                                      item.status == 'CANCELLED'
-                                  ? null
-                                  : () => _editOccurrence(context, ref, item),
-                              onCancel:
-                                  item.status == 'PAID' ||
-                                      item.status == 'CANCELLED'
-                                  ? null
-                                  : () => _cancelOccurrence(context, ref, item),
-                            ),
-                        ],
-                      );
-                    },
                   ),
           ),
           const SizedBox(height: 16),
@@ -184,60 +143,82 @@ class PaymentsPage extends ConsumerWidget {
   }
 }
 
-class _OccurrenceCard extends StatelessWidget {
-  const _OccurrenceCard({
-    required this.occurrence,
-    required this.name,
+class _RecurringPaymentTile extends StatelessWidget {
+  const _RecurringPaymentTile({
+    required this.payment,
+    required this.nextOccurrence,
+    required this.onEditSchedule,
     required this.onPay,
-    required this.onEdit,
-    required this.onCancel,
+    required this.onEditOccurrence,
+    required this.onCancelOccurrence,
   });
 
-  final PaymentOccurrence occurrence;
-  final String name;
-  final VoidCallback? onPay;
-  final VoidCallback? onEdit;
-  final VoidCallback? onCancel;
+  final RecurringPayment payment;
+  final PaymentOccurrence? nextOccurrence;
+  final VoidCallback onEditSchedule;
+  final ValueChanged<PaymentOccurrence> onPay;
+  final ValueChanged<PaymentOccurrence> onEditOccurrence;
+  final ValueChanged<PaymentOccurrence> onCancelOccurrence;
 
   @override
   Widget build(BuildContext context) {
-    final remaining = occurrence.expectedAmount - occurrence.paidAmount;
+    final occurrence = nextOccurrence;
+    final dueDate = occurrence?.dueDate;
+    final status = occurrence?.status;
     return Card(
       child: ListTile(
-        title: Text(name),
-        subtitle: Text(
-          '${_shortDate.format(occurrence.dueDate)} · ${_status(occurrence.status)}'
-          '${occurrence.paidAmount > 0 ? ' · Осталось ${_money.format(remaining)}' : ''}',
+        title: Text(payment.name),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${_money.format(payment.amount)} · ${frequencyLabel(parseFrequency(payment.frequency))}',
+              ),
+              const SizedBox(height: 2),
+              Text(
+                dueDate == null
+                    ? 'Следующий платеж: не запланирован'
+                    : 'Следующий платеж: ${_shortDate.format(dueDate)}${status == 'OVERDUE' ? ' · просрочен' : ''}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
         ),
-        leading: const CircleAvatar(child: Icon(Icons.payments_outlined)),
+        leading: const CircleAvatar(child: Icon(Icons.event_repeat_outlined)),
         trailing: PopupMenuButton<String>(
+          tooltip: 'Действия с платежом',
           onSelected: (action) {
-            if (action == 'pay') onPay?.call();
-            if (action == 'edit') onEdit?.call();
-            if (action == 'cancel') onCancel?.call();
+            if (action == 'schedule') onEditSchedule();
+            if (occurrence == null) return;
+            if (action == 'pay') onPay(occurrence);
+            if (action == 'edit') onEditOccurrence(occurrence);
+            if (action == 'cancel') onCancelOccurrence(occurrence);
           },
           itemBuilder: (context) => [
-            if (onPay != null)
+            const PopupMenuItem(
+              value: 'schedule',
+              child: Text('Изменить расписание'),
+            ),
+            if (occurrence != null) ...[
               const PopupMenuItem(value: 'pay', child: Text('Оплатить')),
-            if (onEdit != null)
-              const PopupMenuItem(value: 'edit', child: Text('Изменить')),
-            if (onCancel != null)
-              const PopupMenuItem(value: 'cancel', child: Text('Отменить')),
+              const PopupMenuItem(
+                value: 'edit',
+                child: Text('Изменить платеж'),
+              ),
+              const PopupMenuItem(
+                value: 'cancel',
+                child: Text('Отменить платеж'),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
 }
-
-String _status(String status) => switch (status) {
-  'UPCOMING' => 'Ожидает',
-  'PARTIALLY_PAID' => 'Оплачен частично',
-  'PAID' => 'Оплачен',
-  'OVERDUE' => 'Просрочен',
-  'CANCELLED' => 'Отменен',
-  _ => status,
-};
 
 DateTime _nextIncomeDate(IncomeSchedule schedule) {
   return calendarDate(schedule.expectedDate);

@@ -599,12 +599,19 @@ class FinancialPlanningService {
           dueDate = next;
         }
       }
-      await (db.update(db.paymentOccurrences)..where(
-            (row) =>
-                row.status.equals('UPCOMING') &
-                row.dueDate.isSmallerThanValue(today),
-          ))
-          .write(const PaymentOccurrencesCompanion(status: Value('OVERDUE')));
+      final unpaidOccurrences = await (db.select(
+        db.paymentOccurrences,
+      )..where((row) => row.status.isIn(['UPCOMING', 'OVERDUE']))).get();
+      for (final occurrence in unpaidOccurrences) {
+        final status = calendarDate(occurrence.dueDate).isBefore(today)
+            ? 'OVERDUE'
+            : 'UPCOMING';
+        if (occurrence.status != status) {
+          await (db.update(db.paymentOccurrences)
+                ..where((row) => row.id.equals(occurrence.id)))
+              .write(PaymentOccurrencesCompanion(status: Value(status)));
+        }
+      }
     });
   }
 

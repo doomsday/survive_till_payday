@@ -22,6 +22,9 @@ required.
 - The dashboard highlights Safe to Spend, daily limit and payday, monthly income
   and spending, upcoming or overdue obligations, category spending, and the
   latest transactions.
+- The Operations tab supports searchable, date/account/category/type-filtered
+  transaction history, income and expense creation/editing/deletion, and
+  paired same-currency transfers that update both account balances.
 
 ## Development
 

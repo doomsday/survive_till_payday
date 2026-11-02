@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/transactions/presentation/transactions_page.dart';
 import '../features/planning/presentation/dashboard_page.dart';
 import '../features/planning/presentation/payments_page.dart';
 import '../features/planning/presentation/settings_planning_page.dart';
@@ -21,7 +22,15 @@ final appRouter = GoRouter(
             ),
           ],
         ),
-        _branch('/transactions', 'Операции', Icons.receipt_long_outlined),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/transactions',
+              pageBuilder: (context, state) =>
+                  const NoTransitionPage(child: TransactionsPage()),
+            ),
+          ],
+        ),
         StatefulShellBranch(
           routes: [
             GoRoute(

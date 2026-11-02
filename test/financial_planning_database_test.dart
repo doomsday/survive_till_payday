@@ -78,6 +78,36 @@ void main() {
     },
   );
 
+  test('corrects overdue status when an obligation is in the future', () async {
+    final recurringPaymentId = await database
+        .into(database.recurringPayments)
+        .insert(
+          RecurringPaymentsCompanion.insert(
+            name: 'Интернет',
+            amount: 5000,
+            frequency: 'MONTHLY',
+            startDate: DateTime(2026, 11, 5),
+          ),
+        );
+    final occurrenceId = await database
+        .into(database.paymentOccurrences)
+        .insert(
+          PaymentOccurrencesCompanion.insert(
+            recurringPaymentId: recurringPaymentId,
+            expectedAmount: 5000,
+            dueDate: DateTime(2026, 11, 5),
+            status: const Value('OVERDUE'),
+          ),
+        );
+
+    await planning.generateOccurrences(now: today);
+
+    final occurrence = await (database.select(
+      database.paymentOccurrences,
+    )..where((row) => row.id.equals(occurrenceId))).getSingle();
+    expect(occurrence.status, 'UPCOMING');
+  });
+
   test('a received scheduled income is not counted twice', () async {
     final accountId = await addAccount();
     await planning.setNextPayday(DateTime(2026, 11, 12));
