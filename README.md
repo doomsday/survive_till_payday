@@ -1,17 +1,26 @@
-# survive_till_payday
+# Payday
 
-A new Flutter project.
+Offline-first personal finance app built with Flutter, Drift/SQLite, and Riverpod.
+Financial amounts are stored as integer KZT values; no backend or account is
+required.
 
-## Getting Started
+## Financial planning
 
-This project is a starting point for a Flutter application.
+- Add recurring obligations on weekly, monthly, quarterly, or yearly schedules.
+  Future occurrences are generated locally and duplicate dates are not recreated.
+- Edit or cancel an individual occurrence, record full or partial payments, and
+  have payment transactions update the selected account balance.
+- Record expected income on a recurring or one-off schedule. Marking it received
+  adds an income transaction and prevents the forecast from counting it twice.
+- Set a virtual reserve and the next payday. The dashboard calculates
+  `Safe to Spend = active balances + expected income - unpaid obligations - reserve`
+  for the current payday cycle, along with a non-negative daily limit.
+- Add a quick expense from the dashboard.
 
-A few resources to get you started if this is your first Flutter project:
+## Development
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```shell
+flutter pub get
+flutter analyze
+flutter test
+```

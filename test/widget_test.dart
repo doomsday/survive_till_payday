@@ -5,16 +5,37 @@
 // gestures. You can also use WidgetTester to find child widgets in the widget
 // tree, read text, and verify that the values of widget properties are correct.
 
+import 'package:drift/native.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:survive_till_payday/app/app.dart';
+import 'package:survive_till_payday/core/database/app_database.dart';
+import 'package:survive_till_payday/core/database/database_provider.dart';
 
 void main() {
-  testWidgets('Payday foundation opens the dashboard', (WidgetTester tester) async {
-    await tester.pumpWidget(const PaydayApp());
+  testWidgets('Payday foundation opens the dashboard', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          databaseProvider.overrideWith((ref) {
+            final database = AppDatabase(NativeDatabase.memory());
+            ref.onDispose(database.close);
+            return database;
+          }),
+        ],
+        child: const PaydayApp(),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Payday'), findsOneWidget);
     expect(find.text('Обзор'), findsWidgets);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
   });
 }

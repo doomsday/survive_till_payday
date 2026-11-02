@@ -121,3 +121,5 @@ app.*.symbols
 # Mine
 .idea
 survive_till_payday.iml
+payday.sqlite
+payday.sqlite-*

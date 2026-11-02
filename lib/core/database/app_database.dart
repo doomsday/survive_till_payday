@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
+import 'package:path/path.dart' as p;
 
 part 'app_database.g.dart';
 
@@ -27,7 +30,8 @@ class Categories extends Table {
 class Transactions extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get accountId => integer().references(Accounts, #id)();
-  IntColumn get categoryId => integer().nullable().references(Categories, #id)();
+  IntColumn get categoryId =>
+      integer().nullable().references(Categories, #id)();
   TextColumn get type => text()();
   IntColumn get amount => integer()();
   TextColumn get currency => text().withDefault(const Constant('KZT'))();
@@ -35,7 +39,8 @@ class Transactions extends Table {
   DateTimeColumn get transactionDate => dateTime()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
-  BoolColumn get isExcludedFromStatistics => boolean().withDefault(const Constant(false))();
+  BoolColumn get isExcludedFromStatistics =>
+      boolean().withDefault(const Constant(false))();
   IntColumn get linkedPaymentOccurrenceId => integer().nullable()();
   IntColumn get transferGroupId => integer().nullable()();
 }
@@ -44,7 +49,8 @@ class RecurringPayments extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text().withLength(min: 1, max: 120)();
   IntColumn get amount => integer()();
-  IntColumn get categoryId => integer().nullable().references(Categories, #id)();
+  IntColumn get categoryId =>
+      integer().nullable().references(Categories, #id)();
   IntColumn get accountId => integer().nullable().references(Accounts, #id)();
   TextColumn get frequency => text()();
   IntColumn get paymentDay => integer().nullable()();
@@ -56,7 +62,8 @@ class RecurringPayments extends Table {
 
 class PaymentOccurrences extends Table {
   IntColumn get id => integer().autoIncrement()();
-  IntColumn get recurringPaymentId => integer().references(RecurringPayments, #id)();
+  IntColumn get recurringPaymentId =>
+      integer().references(RecurringPayments, #id)();
   IntColumn get expectedAmount => integer()();
   DateTimeColumn get dueDate => dateTime()();
   TextColumn get status => text().withDefault(const Constant('UPCOMING'))();
@@ -82,29 +89,42 @@ class AppSettings extends Table {
   Set<Column<Object>> get primaryKey => {key};
 }
 
-@DriftDatabase(tables: [
-  Accounts,
-  Categories,
-  Transactions,
-  RecurringPayments,
-  PaymentOccurrences,
-  IncomeSchedules,
-  AppSettings,
-])
+@DriftDatabase(
+  tables: [
+    Accounts,
+    Categories,
+    Transactions,
+    RecurringPayments,
+    PaymentOccurrences,
+    IncomeSchedules,
+    AppSettings,
+  ],
+)
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(driftDatabase(name: 'payday'));
+  AppDatabase([QueryExecutor? executor])
+    : super(
+        executor ??
+            driftDatabase(
+              name: 'payday',
+              native: DriftNativeOptions(
+                // Keep the file in the project root for easy inspection on desktop.
+                databasePath: () async =>
+                    p.join(Directory.current.path, 'payday.sqlite'),
+              ),
+            ),
+      );
 
   @override
   int get schemaVersion => 1;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (m) => m.createAll(),
-        onUpgrade: (m, from, to) async {
-          // Add schema changes here in a new versioned migration.
-        },
-        beforeOpen: (details) async {
-          await customStatement('PRAGMA foreign_keys = ON');
-        },
-      );
+    onCreate: (m) => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      // Add schema changes here in a new versioned migration.
+    },
+    beforeOpen: (details) async {
+      await customStatement('PRAGMA foreign_keys = ON');
+    },
+  );
 }
