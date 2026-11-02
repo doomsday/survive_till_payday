@@ -1,8 +1,5 @@
-import 'dart:io';
-
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
-import 'package:path/path.dart' as p;
 
 part 'app_database.g.dart';
 
@@ -104,14 +101,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
     : super(
         executor ??
-            driftDatabase(
-              name: 'payday',
-              native: DriftNativeOptions(
-                // Keep the file in the project root for easy inspection on desktop.
-                databasePath: () async =>
-                    p.join(Directory.current.path, 'payday.sqlite'),
-              ),
-            ),
+            driftDatabase(name: 'payday'),
       );
 
   @override
