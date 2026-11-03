@@ -471,6 +471,7 @@ class FinancialPlanningService {
     String description = '',
   }) async {
     if (amount <= 0) throw ArgumentError.value(amount, 'amount');
+    await _validateRecurringCategory(categoryId);
     final start = calendarDate(startDate);
     await db
         .into(db.recurringPayments)
@@ -503,6 +504,18 @@ class FinancialPlanningService {
     if (amount <= 0) throw ArgumentError.value(amount, 'amount');
     final today = calendarDate(DateTime.now());
     await db.transaction(() async {
+      final existing = await (db.select(
+        db.recurringPayments,
+      )..where((row) => row.id.equals(id))).getSingleOrNull();
+      if (existing == null) {
+        throw StateError('Recurring payment $id not found.');
+      }
+      await _validateRecurringCategory(
+        categoryId,
+        allowArchivedCategoryId: categoryId == existing.categoryId
+            ? existing.categoryId
+            : null,
+      );
       await (db.update(
         db.recurringPayments,
       )..where((row) => row.id.equals(id))).write(
@@ -536,6 +549,21 @@ class FinancialPlanningService {
       }
     });
     await generateOccurrences();
+  }
+
+  Future<void> _validateRecurringCategory(
+    int? categoryId, {
+    int? allowArchivedCategoryId,
+  }) async {
+    if (categoryId == null) return;
+    final category = await (db.select(
+      db.categories,
+    )..where((row) => row.id.equals(categoryId))).getSingleOrNull();
+    if (category == null ||
+        category.type != 'EXPENSE' ||
+        (category.isArchived && category.id != allowArchivedCategoryId)) {
+      throw ArgumentError.value(categoryId, 'categoryId');
+    }
   }
 
   Future<void> generateOccurrences({DateTime? now}) async {

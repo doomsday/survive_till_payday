@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../accounts/presentation/account_dialog.dart';
 import '../../../core/database/app_database.dart';
+import '../../categories/categories_repository.dart';
 import '../domain/financial_planning_service.dart';
 import '../planning_providers.dart';
 
@@ -22,6 +23,8 @@ class PaymentsPage extends ConsumerWidget {
     final occurrences = ref.watch(paymentOccurrencesProvider);
     final schedules = ref.watch(recurringPaymentsProvider);
     final incomes = ref.watch(incomeSchedulesProvider);
+    final categories =
+        ref.watch(categoriesProvider).value ?? const <Category>[];
     return Scaffold(
       appBar: AppBar(
         title: const Text('Планирование'),
@@ -59,6 +62,12 @@ class PaymentsPage extends ConsumerWidget {
                       for (final item in items) ...[
                         _RecurringPaymentTile(
                           payment: item,
+                          categoryName: categories
+                              .where(
+                                (category) => category.id == item.categoryId,
+                              )
+                              .firstOrNull
+                              ?.name,
                           nextOccurrence: occurrences.value
                               ?.where(
                                 (occurrence) =>
@@ -146,6 +155,7 @@ class PaymentsPage extends ConsumerWidget {
 class _RecurringPaymentTile extends StatelessWidget {
   const _RecurringPaymentTile({
     required this.payment,
+    required this.categoryName,
     required this.nextOccurrence,
     required this.onEditSchedule,
     required this.onPay,
@@ -154,6 +164,7 @@ class _RecurringPaymentTile extends StatelessWidget {
   });
 
   final RecurringPayment payment;
+  final String? categoryName;
   final PaymentOccurrence? nextOccurrence;
   final VoidCallback onEditSchedule;
   final ValueChanged<PaymentOccurrence> onPay;
@@ -177,6 +188,13 @@ class _RecurringPaymentTile extends StatelessWidget {
               Text(
                 '${_money.format(payment.amount)} · ${frequencyLabel(parseFrequency(payment.frequency))}',
               ),
+              if (categoryName != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  categoryName!,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
               const SizedBox(height: 2),
               Text(
                 dueDate == null
@@ -531,19 +549,20 @@ class _EmptyMessage extends StatelessWidget {
   );
 }
 
-class _RecurringForm extends StatefulWidget {
+class _RecurringForm extends ConsumerStatefulWidget {
   const _RecurringForm({this.initial});
   final RecurringPayment? initial;
 
   @override
-  State<_RecurringForm> createState() => _RecurringFormState();
+  ConsumerState<_RecurringForm> createState() => _RecurringFormState();
 }
 
-class _RecurringFormState extends State<_RecurringForm> {
+class _RecurringFormState extends ConsumerState<_RecurringForm> {
   late final TextEditingController _name;
   late final TextEditingController _amount;
   late DateTime _startDate;
   late PlanningFrequency _frequency;
+  int? _categoryId;
   bool _isActive = true;
   String? _error;
 
@@ -555,6 +574,7 @@ class _RecurringFormState extends State<_RecurringForm> {
     _amount = TextEditingController(text: item == null ? '' : '${item.amount}');
     _startDate = item?.startDate ?? DateTime.now();
     _frequency = parseFrequency(item?.frequency ?? 'MONTHLY');
+    _categoryId = item?.categoryId;
     _isActive = item?.isActive ?? true;
   }
 
@@ -566,74 +586,114 @@ class _RecurringFormState extends State<_RecurringForm> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text(widget.initial == null ? 'Новый платеж' : 'Расписание платежа'),
-    content: SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: _name,
-            decoration: const InputDecoration(labelText: 'Название'),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _amount,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Сумма, ₸'),
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<PlanningFrequency>(
-            initialValue: _frequency,
-            decoration: const InputDecoration(labelText: 'Периодичность'),
-            items: [
-              for (final frequency in PlanningFrequency.values.where(
-                (value) => value != PlanningFrequency.once,
-              ))
-                DropdownMenuItem(
-                  value: frequency,
-                  child: Text(frequencyLabel(frequency)),
-                ),
-            ],
-            onChanged: (value) =>
-                setState(() => _frequency = value ?? _frequency),
-          ),
-          TextButton.icon(
-            onPressed: () async {
-              final selected = await showDatePicker(
-                context: context,
-                initialDate: _startDate,
-                firstDate: DateTime(2000),
-                lastDate: DateTime(2100),
-              );
-              if (selected != null) setState(() => _startDate = selected);
-            },
-            icon: const Icon(Icons.calendar_today_outlined),
-            label: Text('Начало: ${_shortDate.format(_startDate)}'),
-          ),
-          if (widget.initial != null)
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Активно'),
-              value: _isActive,
-              onChanged: (value) => setState(() => _isActive = value),
-            ),
-          if (_error != null)
-            Text(
-              _error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-        ],
+  Widget build(BuildContext context) {
+    final categories = ref.watch(categoriesProvider);
+    return AlertDialog(
+      title: Text(
+        widget.initial == null ? 'Новый платеж' : 'Расписание платежа',
       ),
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context, false),
-        child: const Text('Отмена'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _name,
+              decoration: const InputDecoration(labelText: 'Название'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _amount,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Сумма, ₸'),
+            ),
+            const SizedBox(height: 12),
+            categories.when(
+              data: (items) {
+                final expenseCategories = items
+                    .where(
+                      (category) =>
+                          category.type == 'EXPENSE' &&
+                          (!category.isArchived || category.id == _categoryId),
+                    )
+                    .toList();
+                return DropdownButtonFormField<int?>(
+                  initialValue: _categoryId,
+                  decoration: const InputDecoration(labelText: 'Категория'),
+                  items: [
+                    const DropdownMenuItem<int?>(
+                      value: null,
+                      child: Text('Без категории'),
+                    ),
+                    for (final category in expenseCategories)
+                      DropdownMenuItem<int?>(
+                        value: category.id,
+                        child: Text(
+                          '${category.name}${category.isArchived ? ' · В архиве' : ''}',
+                        ),
+                      ),
+                  ],
+                  onChanged: (value) => setState(() => _categoryId = value),
+                );
+              },
+              loading: () => const LinearProgressIndicator(),
+              error: (error, _) => Text(
+                'Не удалось загрузить категории: $error',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<PlanningFrequency>(
+              initialValue: _frequency,
+              decoration: const InputDecoration(labelText: 'Периодичность'),
+              items: [
+                for (final frequency in PlanningFrequency.values.where(
+                  (value) => value != PlanningFrequency.once,
+                ))
+                  DropdownMenuItem(
+                    value: frequency,
+                    child: Text(frequencyLabel(frequency)),
+                  ),
+              ],
+              onChanged: (value) =>
+                  setState(() => _frequency = value ?? _frequency),
+            ),
+            TextButton.icon(
+              onPressed: () async {
+                final selected = await showDatePicker(
+                  context: context,
+                  initialDate: _startDate,
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime(2100),
+                );
+                if (selected != null) setState(() => _startDate = selected);
+              },
+              icon: const Icon(Icons.calendar_today_outlined),
+              label: Text('Начало: ${_shortDate.format(_startDate)}'),
+            ),
+            if (widget.initial != null)
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Активно'),
+                value: _isActive,
+                onChanged: (value) => setState(() => _isActive = value),
+              ),
+            if (_error != null)
+              Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+          ],
+        ),
       ),
-      FilledButton(onPressed: _save, child: const Text('Сохранить')),
-    ],
-  );
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Отмена'),
+        ),
+        FilledButton(onPressed: _save, child: const Text('Сохранить')),
+      ],
+    );
+  }
 
   Future<void> _save() async {
     final amount = int.tryParse(_amount.text.trim());
@@ -658,6 +718,7 @@ class _RecurringFormState extends State<_RecurringForm> {
           amount: amount,
           frequency: frequency,
           startDate: _startDate,
+          categoryId: _categoryId,
         );
       } else {
         await service.updateRecurringPayment(
@@ -667,7 +728,7 @@ class _RecurringFormState extends State<_RecurringForm> {
           frequency: frequency,
           startDate: _startDate,
           paymentDay: existing.paymentDay,
-          categoryId: existing.categoryId,
+          categoryId: _categoryId,
           accountId: existing.accountId,
           isActive: _isActive,
         );

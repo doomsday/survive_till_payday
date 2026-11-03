@@ -78,6 +78,98 @@ void main() {
     },
   );
 
+  test(
+    'recurring payments accept expense categories and retain them on edit',
+    () async {
+      final categories = await database.select(database.categories).get();
+      final expense = categories.firstWhere(
+        (category) => category.name == 'Продукты',
+      );
+      final income = categories.firstWhere(
+        (category) => category.type == 'INCOME',
+      );
+
+      await planning.createRecurringPayment(
+        name: 'Покупки продуктов',
+        amount: 15000,
+        frequency: 'MONTHLY',
+        startDate: today,
+        categoryId: expense.id,
+      );
+      var payment =
+          (await database.select(database.recurringPayments).get()).single;
+      expect(payment.categoryId, expense.id);
+
+      final archivedId = await database
+          .into(database.categories)
+          .insert(
+            CategoriesCompanion.insert(
+              name: 'Архивная категория',
+              type: 'EXPENSE',
+              isArchived: const Value(true),
+            ),
+          );
+      await planning.updateRecurringPayment(
+        id: payment.id,
+        name: payment.name,
+        amount: payment.amount,
+        frequency: payment.frequency,
+        startDate: payment.startDate,
+        categoryId: payment.categoryId,
+        isActive: payment.isActive,
+      );
+      payment =
+          (await database.select(database.recurringPayments).get()).single;
+      expect(payment.categoryId, expense.id);
+
+      final accountId = await addAccount();
+      final occurrence =
+          (await (database.select(database.paymentOccurrences)
+                    ..where((row) => row.recurringPaymentId.equals(payment.id)))
+                  .get())
+              .first;
+      await planning.payOccurrence(
+        occurrence: occurrence,
+        accountId: accountId,
+        amount: 15000,
+        paidDate: today,
+      );
+      final paidTransaction =
+          (await (database.select(database.transactions)..where(
+                    (row) =>
+                        row.linkedPaymentOccurrenceId.equals(occurrence.id),
+                  ))
+                  .get())
+              .single;
+      expect(paidTransaction.categoryId, expense.id);
+
+      await expectLater(
+        planning.updateRecurringPayment(
+          id: payment.id,
+          name: payment.name,
+          amount: payment.amount,
+          frequency: payment.frequency,
+          startDate: payment.startDate,
+          categoryId: income.id,
+          isActive: payment.isActive,
+        ),
+        throwsArgumentError,
+      );
+      await expectLater(
+        planning.updateRecurringPayment(
+          id: payment.id,
+          name: payment.name,
+          amount: payment.amount,
+          frequency: payment.frequency,
+          startDate: payment.startDate,
+          categoryId: archivedId,
+          isActive: payment.isActive,
+        ),
+        throwsArgumentError,
+      );
+    },
+  );
+
   test('corrects overdue status when an obligation is in the future', () async {
     final recurringPaymentId = await database
         .into(database.recurringPayments)
