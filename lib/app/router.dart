@@ -5,6 +5,7 @@ import '../features/transactions/presentation/transactions_page.dart';
 import '../features/planning/presentation/dashboard_page.dart';
 import '../features/planning/presentation/payments_page.dart';
 import '../features/planning/presentation/settings_planning_page.dart';
+import '../features/categories/presentation/categories_page.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/',
@@ -51,6 +52,10 @@ final appRouter = GoRouter(
           ],
         ),
       ],
+    ),
+    GoRoute(
+      path: '/categories',
+      builder: (context, state) => const CategoriesPage(),
     ),
   ],
 );

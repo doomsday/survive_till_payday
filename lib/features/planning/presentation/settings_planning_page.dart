@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../accounts/presentation/account_dialog.dart';
@@ -59,6 +60,18 @@ class _PlanningSettingsPageState extends ConsumerState<PlanningSettingsPage> {
           padding: const EdgeInsets.all(16),
           children: [
             const AccountsSettingsSection(),
+            const SizedBox(height: 24),
+            Text('Категории', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.category_outlined),
+                title: const Text('Управление категориями'),
+                subtitle: const Text('Расходы и доходы'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/categories'),
+              ),
+            ),
             const SizedBox(height: 24),
             Text(
               'Следующая зарплата',

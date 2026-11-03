@@ -111,16 +111,64 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-    onCreate: (m) => m.createAll(),
+    onCreate: (m) async {
+      await m.createAll();
+      await _seedDefaultCategories();
+    },
     onUpgrade: (m, from, to) async {
-      // Add schema changes here in a new versioned migration.
+      if (from < 2) await _seedDefaultCategories();
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
     },
   );
+
+  Future<void> _seedDefaultCategories() async {
+    const defaults = [
+      ('Жильё', 'EXPENSE', 'home', 0xFF5C6BC0),
+      ('Коммунальные услуги', 'EXPENSE', 'water', 0xFF42A5F5),
+      ('Продукты', 'EXPENSE', 'groceries', 0xFF66BB6A),
+      ('Кафе и рестораны', 'EXPENSE', 'restaurant', 0xFFFF7043),
+      ('Транспорт', 'EXPENSE', 'transport', 0xFF26A69A),
+      ('Автомобиль', 'EXPENSE', 'car', 0xFF78909C),
+      ('Здоровье', 'EXPENSE', 'health', 0xFFEC407A),
+      ('Подписки', 'EXPENSE', 'subscriptions', 0xFFAB47BC),
+      ('Развлечения', 'EXPENSE', 'entertainment', 0xFF7E57C2),
+      ('Покупки', 'EXPENSE', 'shopping', 0xFFFFA726),
+      ('Алкоголь', 'EXPENSE', 'wine', 0xFF8D6E63),
+      ('Налоги', 'EXPENSE', 'taxes', 0xFF607D8B),
+      ('Образование', 'EXPENSE', 'education', 0xFF29B6F6),
+      ('Другое', 'EXPENSE', 'category', 0xFF78909C),
+      ('Зарплата', 'INCOME', 'salary', 0xFF43A047),
+      ('Премия', 'INCOME', 'bonus', 0xFF7CB342),
+      ('Фриланс', 'INCOME', 'work', 0xFF26A69A),
+      ('Инвестиции', 'INCOME', 'investments', 0xFF00897B),
+      ('Прочие доходы', 'INCOME', 'income', 0xFF009688),
+    ];
+    final existing = await select(categories).get();
+    final existingKeys = {
+      for (final category in existing) '${category.type}:${category.name}',
+    };
+
+    await batch((batch) {
+      for (final (name, type, icon, color) in defaults) {
+        if (existingKeys.add('$type:$name')) {
+          batch.insert(
+            categories,
+            CategoriesCompanion.insert(
+              name: name,
+              type: type,
+              icon: Value(icon),
+              color: Value(color),
+              isSystem: const Value(true),
+            ),
+          );
+        }
+      }
+    });
+  }
 }
