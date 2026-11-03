@@ -6,6 +6,7 @@ import '../features/planning/presentation/dashboard_page.dart';
 import '../features/planning/presentation/payments_page.dart';
 import '../features/planning/presentation/settings_planning_page.dart';
 import '../features/categories/presentation/categories_page.dart';
+import '../features/analytics/presentation/analytics_page.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/',
@@ -41,7 +42,15 @@ final appRouter = GoRouter(
             ),
           ],
         ),
-        _branch('/analytics', 'Аналитика', Icons.insert_chart_outlined),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/analytics',
+              pageBuilder: (context, state) =>
+                  const NoTransitionPage(child: AnalyticsPage()),
+            ),
+          ],
+        ),
         StatefulShellBranch(
           routes: [
             GoRoute(
@@ -59,18 +68,6 @@ final appRouter = GoRouter(
     ),
   ],
 );
-
-StatefulShellBranch _branch(String path, String title, IconData icon) =>
-    StatefulShellBranch(
-      routes: [
-        GoRoute(
-          path: path,
-          pageBuilder: (context, state) => NoTransitionPage(
-            child: SectionPage(title: title, icon: icon),
-          ),
-        ),
-      ],
-    );
 
 class AppScaffold extends StatelessWidget {
   const AppScaffold({required this.navigationShell, super.key});
@@ -108,35 +105,6 @@ class AppScaffold extends StatelessWidget {
       onDestinationSelected: (index) => navigationShell.goBranch(
         index,
         initialLocation: index == navigationShell.currentIndex,
-      ),
-    ),
-  );
-}
-
-class SectionPage extends StatelessWidget {
-  const SectionPage({required this.title, required this.icon, super.key});
-  final String title;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(title)),
-    body: Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 52, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 16),
-            Text(title, style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 8),
-            Text(
-              'Раздел будет реализован на следующем этапе.',
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
       ),
     ),
   );
