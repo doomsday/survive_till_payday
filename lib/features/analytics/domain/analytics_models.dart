@@ -186,6 +186,7 @@ class AnalyticsTransaction {
     required this.description,
     required this.isExcludedFromStatistics,
     required this.isRecurring,
+    this.isNoWithdrawalTransfer = false,
     this.categoryId,
     this.categoryName,
     this.categoryColor,
@@ -199,6 +200,7 @@ class AnalyticsTransaction {
   final String description;
   final bool isExcludedFromStatistics;
   final bool isRecurring;
+  final bool isNoWithdrawalTransfer;
   final int? categoryId;
   final String? categoryName;
   final int? categoryColor;

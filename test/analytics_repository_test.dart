@@ -82,4 +82,95 @@ void main() {
     expect(report.totals.regularExpenses, 5000);
     expect(report.totals.irregularExpenses, 0);
   });
+
+  test('counts transfers into no-withdrawal accounts as expenses', () async {
+    final sourceId = await database
+        .into(database.accounts)
+        .insert(AccountsCompanion.insert(name: 'Основной'));
+    final restrictedId = await database
+        .into(database.accounts)
+        .insert(
+          AccountsCompanion.insert(
+            name: 'Без снятия',
+            isNoWithdrawal: const Value(true),
+          ),
+        );
+    await database
+        .into(database.transactions)
+        .insert(
+          TransactionsCompanion.insert(
+            accountId: sourceId,
+            type: 'EXPENSE',
+            amount: 1000,
+            transactionDate: DateTime(2026, 11, 3),
+          ),
+        );
+    final transferId = await database
+        .into(database.transactions)
+        .insert(
+          TransactionsCompanion.insert(
+            accountId: sourceId,
+            type: 'TRANSFER',
+            amount: 8000,
+            transactionDate: DateTime(2026, 11, 3),
+          ),
+        );
+    await (database.update(database.transactions)
+          ..where((row) => row.id.equals(transferId)))
+        .write(TransactionsCompanion(transferGroupId: Value(transferId)));
+    await database
+        .into(database.transactions)
+        .insert(
+          TransactionsCompanion.insert(
+            accountId: restrictedId,
+            type: 'TRANSFER',
+            amount: 8000,
+            transactionDate: DateTime(2026, 11, 3),
+            transferGroupId: Value(transferId),
+          ),
+        );
+    final outgoingTransferId = await database
+        .into(database.transactions)
+        .insert(
+          TransactionsCompanion.insert(
+            accountId: restrictedId,
+            type: 'TRANSFER',
+            amount: 4000,
+            transactionDate: DateTime(2026, 11, 3),
+          ),
+        );
+    await (database.update(
+      database.transactions,
+    )..where((row) => row.id.equals(outgoingTransferId))).write(
+      TransactionsCompanion(transferGroupId: Value(outgoingTransferId)),
+    );
+    await database
+        .into(database.transactions)
+        .insert(
+          TransactionsCompanion.insert(
+            accountId: sourceId,
+            type: 'TRANSFER',
+            amount: 4000,
+            transactionDate: DateTime(2026, 11, 3),
+            transferGroupId: Value(outgoingTransferId),
+          ),
+        );
+
+    final report = await repository.getReport(
+      AnalyticsQuery(
+        period: AnalyticsPeriod.currentMonth,
+        range: analyticsRangeFor(
+          AnalyticsPeriod.currentMonth,
+          now: DateTime(2026, 11, 3),
+        ),
+        currency: 'KZT',
+      ),
+    );
+
+    expect(report.totals.expenses, 9000);
+    expect(report.totals.expenseCount, 2);
+    expect(report.categories.single.name, 'Без категории');
+    expect(report.categories.single.amount, 9000);
+    expect(report.topMerchants.single.count, 1);
+  });
 }

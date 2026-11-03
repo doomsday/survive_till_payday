@@ -107,6 +107,7 @@ class DashboardData {
     required this.monthExpense,
     required this.categorySpending,
     required this.recentTransactions,
+    required this.remainingTransactionsThisMonth,
     required this.upcomingPayments,
   });
 
@@ -114,6 +115,7 @@ class DashboardData {
   final int monthExpense;
   final List<CategorySpending> categorySpending;
   final List<DashboardTransaction> recentTransactions;
+  final int remainingTransactionsThisMonth;
   final List<DashboardPayment> upcomingPayments;
 }
 
@@ -257,13 +259,21 @@ class FinancialPlanningService {
     final today = calendarDate(now ?? DateTime.now());
     final monthStart = DateTime(today.year, today.month);
     final nextMonth = DateTime(today.year, today.month + 1);
+    final noWithdrawalAccountIds =
+        (await (db.select(
+              db.accounts,
+            )..where((account) => account.isNoWithdrawal)).get())
+            .map((account) => account.id)
+            .toList();
     final currentMonthTransactions =
         await (db.select(db.transactions)..where(
               (row) =>
                   row.transactionDate.isBiggerOrEqualValue(monthStart) &
                   row.transactionDate.isSmallerThanValue(nextMonth) &
                   row.isExcludedFromStatistics.equals(false) &
-                  row.type.isIn(['INCOME', 'EXPENSE']),
+                  (row.type.isIn(['INCOME', 'EXPENSE']) |
+                      (row.type.equals('TRANSFER') &
+                          row.accountId.isIn(noWithdrawalAccountIds))),
             ))
             .get();
     var monthIncome = 0;
@@ -272,7 +282,10 @@ class FinancialPlanningService {
     for (final transaction in currentMonthTransactions) {
       if (transaction.type == 'INCOME') {
         monthIncome += transaction.amount;
-      } else if (transaction.type == 'EXPENSE') {
+      } else if (transaction.type == 'EXPENSE' ||
+          (transaction.type == 'TRANSFER' &&
+              transaction.transferGroupId != null &&
+              transaction.transferGroupId != transaction.id)) {
         monthExpense += transaction.amount;
         spendingByCategory.update(
           transaction.categoryId,
@@ -299,7 +312,15 @@ class FinancialPlanningService {
     final accountById = {for (final account in accounts) account.id: account};
     final recent =
         await (db.select(db.transactions)
-              ..orderBy([(row) => OrderingTerm.desc(row.transactionDate)])
+              ..where(
+                (row) =>
+                    row.type.isNotValue('TRANSFER') |
+                    row.transferGroupId.equalsExp(row.id),
+              )
+              ..orderBy([
+                (row) => OrderingTerm.desc(row.transactionDate),
+                (row) => OrderingTerm.desc(row.id),
+              ])
               ..limit(5))
             .get();
     final recentTransactions = [
@@ -311,6 +332,28 @@ class FinancialPlanningService {
           categoryColor: categoryById[transaction.categoryId]?.color,
         ),
     ];
+    final operationCount = db.transactions.id.count();
+    final monthOperationCount =
+        await (db.selectOnly(db.transactions)
+              ..addColumns([operationCount])
+              ..where(
+                db.transactions.transactionDate.isBiggerOrEqualValue(
+                      monthStart,
+                    ) &
+                    db.transactions.transactionDate.isSmallerThanValue(
+                      nextMonth,
+                    ) &
+                    (db.transactions.type.isNotValue('TRANSFER') |
+                        db.transactions.transferGroupId.equalsExp(
+                          db.transactions.id,
+                        )),
+              ))
+            .getSingle()
+            .then((row) => row.read(operationCount) ?? 0);
+    final recentMonthOperationCount = recentTransactions.where((item) {
+      return !item.transaction.transactionDate.isBefore(monthStart) &&
+          item.transaction.transactionDate.isBefore(nextMonth);
+    }).length;
 
     final payments =
         await (db.select(db.paymentOccurrences)
@@ -343,6 +386,8 @@ class FinancialPlanningService {
       monthExpense: monthExpense,
       categorySpending: categorySpending,
       recentTransactions: recentTransactions,
+      remainingTransactionsThisMonth:
+          monthOperationCount - recentMonthOperationCount,
       upcomingPayments: upcomingPayments,
     );
   }
@@ -355,7 +400,8 @@ class FinancialPlanningService {
     )..where((account) => account.isActive)).get();
     final currentBalance = activeAccounts.fold<int>(
       0,
-      (total, account) => total + account.currentBalance,
+      (total, account) =>
+          total + (account.isNoWithdrawal ? 0 : account.currentBalance),
     );
     final settings = await db.select(db.appSettings).get();
     final settingValues = {

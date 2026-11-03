@@ -24,7 +24,12 @@ void main() {
               .revision;
       final accountId = await database
           .into(database.accounts)
-          .insert(AccountsCompanion.insert(name: 'Исходный счет'));
+          .insert(
+            AccountsCompanion.insert(
+              name: 'Исходный счет',
+              isNoWithdrawal: const Value(true),
+            ),
+          );
       final changedRevision =
           (await database.select(database.databaseMetadata).getSingle())
               .revision;
@@ -41,6 +46,7 @@ void main() {
       await service.replaceImport(snapshot);
       final restored = await database.select(database.accounts).getSingle();
       expect(restored.name, 'Исходный счет');
+      expect(restored.isNoWithdrawal, isTrue);
       expect(await service.localBackups(), hasLength(1));
       expect(
         (await database.select(database.databaseMetadata).getSingle()).revision,
@@ -120,6 +126,9 @@ void main() {
           oldDatabase.execute('DROP TRIGGER "$trigger"');
         }
         oldDatabase.execute('DROP TABLE database_metadata');
+        oldDatabase.execute(
+          'ALTER TABLE accounts DROP COLUMN is_no_withdrawal',
+        );
         oldDatabase.execute('PRAGMA user_version = 4');
       } finally {
         oldDatabase.close();
@@ -129,6 +138,10 @@ void main() {
       expect(
         (await database.select(database.accounts).getSingle()).name,
         'Keep through migration',
+      );
+      expect(
+        (await database.select(database.accounts).getSingle()).isNoWithdrawal,
+        isFalse,
       );
       final beforeInsert =
           (await database.select(database.databaseMetadata).getSingle())
@@ -169,6 +182,50 @@ void main() {
       for (final backup in backups) {
         expect(File(backup.path).existsSync(), isTrue);
       }
+    } finally {
+      await database.close();
+      await directory.delete(recursive: true);
+    }
+  });
+
+  test('imports v5 snapshots with a default no-withdrawal flag', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'payday-v5-import-',
+    );
+    final databaseFile = File('${directory.path}/payday.sqlite');
+    final oldSnapshotFile = File('${directory.path}/old-snapshot.sqlite');
+    final database = AppDatabase(NativeDatabase(databaseFile));
+    try {
+      await database
+          .into(database.accounts)
+          .insert(
+            AccountsCompanion.insert(
+              name: 'Старый счет',
+              isNoWithdrawal: const Value(true),
+            ),
+          );
+      final service = DatabaseBackupServiceImpl(
+        database,
+        documentsDirectory: () async => directory,
+        databaseFilePath: () async => databaseFile.path,
+      );
+      await oldSnapshotFile.writeAsBytes(await service.createSnapshot());
+
+      final oldDatabase = sqlite.sqlite3.open(oldSnapshotFile.path);
+      try {
+        oldDatabase.execute(
+          'ALTER TABLE accounts DROP COLUMN is_no_withdrawal',
+        );
+        oldDatabase.execute('PRAGMA user_version = 5');
+      } finally {
+        oldDatabase.close();
+      }
+
+      await service.replaceImport(await oldSnapshotFile.readAsBytes());
+
+      final imported = await database.select(database.accounts).getSingle();
+      expect(imported.name, 'Старый счет');
+      expect(imported.isNoWithdrawal, isFalse);
     } finally {
       await database.close();
       await directory.delete(recursive: true);

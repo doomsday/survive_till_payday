@@ -51,6 +51,7 @@ class _AccountDialogState extends ConsumerState<_AccountDialog> {
   late final TextEditingController _initialBalance;
   late final TextEditingController _currentBalance;
   late String _type;
+  late bool _isNoWithdrawal;
   String? _error;
   bool _saving = false;
 
@@ -60,6 +61,7 @@ class _AccountDialogState extends ConsumerState<_AccountDialog> {
     final account = widget.account;
     _name.text = account?.name ?? '';
     _type = account?.type ?? 'BANK';
+    _isNoWithdrawal = account?.isNoWithdrawal ?? false;
     _initialBalance = TextEditingController(
       text: '${account?.initialBalance ?? 0}',
     );
@@ -99,6 +101,18 @@ class _AccountDialogState extends ConsumerState<_AccountDialog> {
           onChanged: (value) {
             if (value != null) setState(() => _type = value);
           },
+        ),
+        const SizedBox(height: 12),
+        CheckboxListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Без снятия'),
+          subtitle: const Text(
+            'Перевод на этот счет будет считаться тратой. Его остаток не войдет в доступные деньги и лимиты.',
+          ),
+          value: _isNoWithdrawal,
+          onChanged: (value) =>
+              setState(() => _isNoWithdrawal = value ?? false),
+          controlAffinity: ListTileControlAffinity.leading,
         ),
         const SizedBox(height: 12),
         TextField(
@@ -171,6 +185,7 @@ class _AccountDialogState extends ConsumerState<_AccountDialog> {
           name: _name.text,
           type: _type,
           initialBalance: initialBalance,
+          isNoWithdrawal: _isNoWithdrawal,
         );
       } else {
         await repository.update(
@@ -179,6 +194,7 @@ class _AccountDialogState extends ConsumerState<_AccountDialog> {
           type: _type,
           initialBalance: initialBalance,
           currentBalance: currentBalance!,
+          isNoWithdrawal: _isNoWithdrawal,
         );
       }
       ref.invalidate(allAccountsProvider);
@@ -267,6 +283,7 @@ class _AccountsSettingsSectionState
                       title: Text(account.name),
                       subtitle: Text(
                         '${_money.format(account.currentBalance)} · ${account.currency}'
+                        '${account.isNoWithdrawal ? ' · Без снятия' : ''}'
                         '${account.isActive ? '' : ' · В архиве'}',
                       ),
                       trailing: PopupMenuButton<String>(

@@ -39,7 +39,11 @@ class AnalyticsRepository {
   Stream<AnalyticsReport> watchReport(AnalyticsQuery query) => _database
       .customSelect(
         'SELECT 1',
-        readsFrom: {_database.transactions, _database.categories},
+        readsFrom: {
+          _database.transactions,
+          _database.categories,
+          _database.accounts,
+        },
       )
       .watch()
       .asyncMap(
@@ -71,9 +75,11 @@ class AnalyticsRepository {
             ))
             .get();
     final categories = await _database.select(_database.categories).get();
+    final accounts = await _database.select(_database.accounts).get();
     final categoriesById = {
       for (final category in categories) category.id: category,
     };
+    final accountsById = {for (final account in accounts) account.id: account};
     return [
       for (final transaction in transactions)
         AnalyticsTransaction(
@@ -85,6 +91,11 @@ class AnalyticsRepository {
           description: transaction.description,
           isExcludedFromStatistics: transaction.isExcludedFromStatistics,
           isRecurring: transaction.linkedPaymentOccurrenceId != null,
+          isNoWithdrawalTransfer:
+              transaction.type == 'TRANSFER' &&
+              transaction.transferGroupId != null &&
+              transaction.transferGroupId != transaction.id &&
+              accountsById[transaction.accountId]?.isNoWithdrawal == true,
           categoryId: transaction.categoryId,
           categoryName: categoriesById[transaction.categoryId]?.name,
           categoryColor: categoriesById[transaction.categoryId]?.color,

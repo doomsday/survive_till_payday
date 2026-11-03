@@ -25,7 +25,7 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
   static const _backupDirectoryName = 'payday-backups';
   static const _backupPrefix = 'payday-before-import-';
   static const _retainedBackupCount = 6;
-  static const _schemaVersion = 5;
+  static const _schemaVersion = 6;
 
   static const _columnsByTable = <String, List<String>>{
     'accounts': [
@@ -33,6 +33,7 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
       'name',
       'type',
       'currency',
+      'is_no_withdrawal',
       'initial_balance',
       'current_balance',
       'is_active',
@@ -286,6 +287,7 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
     Map<String, List<Map<String, Object?>>> rowsByTable,
   ) {
     final row = Map<String, Object?>.from(sourceRow);
+    if (table == 'accounts') row.putIfAbsent('is_no_withdrawal', () => 0);
     final linkColumn = switch (table) {
       'transactions' => 'linked_payment_occurrence_id',
       'payment_occurrences' || 'income_schedules' => 'linked_transaction_id',
@@ -374,8 +376,9 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
   }
 
   void _validate(sqlite.Database source) {
-    final version = source.select('PRAGMA user_version').single.values.first;
-    if (version != 4 && version != _schemaVersion) {
+    final version =
+        source.select('PRAGMA user_version').single.values.first as int;
+    if (version != 4 && version != 5 && version != _schemaVersion) {
       throw const DatabaseBackupException(
         'Версия файла базы данных не поддерживается.',
       );
@@ -396,8 +399,12 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
           .select('PRAGMA table_info("${entry.key}")')
           .map((row) => row['name'] as String)
           .toSet();
-      if (columns.length != entry.value.length ||
-          !columns.containsAll(entry.value)) {
+      final expectedColumns = entry.value.toSet();
+      if (entry.key == 'accounts' && !columns.contains('is_no_withdrawal')) {
+        expectedColumns.remove('is_no_withdrawal');
+      }
+      if (columns.length != expectedColumns.length ||
+          !columns.containsAll(expectedColumns)) {
         throw const DatabaseBackupException(
           'Этот файл относится к другой базе данных или несовместимой версии.',
         );
@@ -414,7 +421,7 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
         'Этот файл относится к другой базе данных.',
       );
     }
-    if (version == _schemaVersion) {
+    if (version >= 5) {
       final metadataColumns = source
           .select('PRAGMA table_info("database_metadata")')
           .map((row) => row['name'] as String)
@@ -433,8 +440,9 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
   }
 
   _SourceMetadata _readSourceMetadata(sqlite.Database source) {
-    final version = source.select('PRAGMA user_version').single.values.first;
-    if (version == _schemaVersion) {
+    final version =
+        source.select('PRAGMA user_version').single.values.first as int;
+    if (version >= 5) {
       final rows = source.select(
         'SELECT database_id, revision, last_changed_at '
         'FROM database_metadata WHERE id = 1',

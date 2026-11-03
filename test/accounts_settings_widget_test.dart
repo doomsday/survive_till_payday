@@ -41,9 +41,20 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Kaspi Gold');
     await tester.enterText(find.byType(TextField).last, '12000');
+    expect(
+      find.text(
+        'Перевод на этот счет будет считаться тратой. Его остаток не войдет в доступные деньги и лимиты.',
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Без снятия'));
     await tester.tap(find.text('Сохранить'));
     await tester.pumpAndSettle();
 
+    expect(
+      (await database.select(database.accounts).getSingle()).isNoWithdrawal,
+      isTrue,
+    );
     expect(find.text('Kaspi Gold'), findsOneWidget);
     expect(find.textContaining('12 000'), findsOneWidget);
 

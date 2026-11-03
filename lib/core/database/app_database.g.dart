@@ -56,6 +56,21 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
     requiredDuringInsert: false,
     defaultValue: const Constant('KZT'),
   );
+  static const VerificationMeta _isNoWithdrawalMeta = const VerificationMeta(
+    'isNoWithdrawal',
+  );
+  @override
+  late final GeneratedColumn<bool> isNoWithdrawal = GeneratedColumn<bool>(
+    'is_no_withdrawal',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_no_withdrawal" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _initialBalanceMeta = const VerificationMeta(
     'initialBalance',
   );
@@ -113,6 +128,7 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
     name,
     type,
     currency,
+    isNoWithdrawal,
     initialBalance,
     currentBalance,
     isActive,
@@ -151,6 +167,15 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
       context.handle(
         _currencyMeta,
         currency.isAcceptableOrUnknown(data['currency']!, _currencyMeta),
+      );
+    }
+    if (data.containsKey('is_no_withdrawal')) {
+      context.handle(
+        _isNoWithdrawalMeta,
+        isNoWithdrawal.isAcceptableOrUnknown(
+          data['is_no_withdrawal']!,
+          _isNoWithdrawalMeta,
+        ),
       );
     }
     if (data.containsKey('initial_balance')) {
@@ -208,6 +233,10 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
         DriftSqlType.string,
         data['${effectivePrefix}currency'],
       )!,
+      isNoWithdrawal: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_no_withdrawal'],
+      )!,
       initialBalance: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}initial_balance'],
@@ -238,6 +267,7 @@ class Account extends DataClass implements Insertable<Account> {
   final String name;
   final String type;
   final String currency;
+  final bool isNoWithdrawal;
   final int initialBalance;
   final int currentBalance;
   final bool isActive;
@@ -247,6 +277,7 @@ class Account extends DataClass implements Insertable<Account> {
     required this.name,
     required this.type,
     required this.currency,
+    required this.isNoWithdrawal,
     required this.initialBalance,
     required this.currentBalance,
     required this.isActive,
@@ -259,6 +290,7 @@ class Account extends DataClass implements Insertable<Account> {
     map['name'] = Variable<String>(name);
     map['type'] = Variable<String>(type);
     map['currency'] = Variable<String>(currency);
+    map['is_no_withdrawal'] = Variable<bool>(isNoWithdrawal);
     map['initial_balance'] = Variable<int>(initialBalance);
     map['current_balance'] = Variable<int>(currentBalance);
     map['is_active'] = Variable<bool>(isActive);
@@ -272,6 +304,7 @@ class Account extends DataClass implements Insertable<Account> {
       name: Value(name),
       type: Value(type),
       currency: Value(currency),
+      isNoWithdrawal: Value(isNoWithdrawal),
       initialBalance: Value(initialBalance),
       currentBalance: Value(currentBalance),
       isActive: Value(isActive),
@@ -289,6 +322,7 @@ class Account extends DataClass implements Insertable<Account> {
       name: serializer.fromJson<String>(json['name']),
       type: serializer.fromJson<String>(json['type']),
       currency: serializer.fromJson<String>(json['currency']),
+      isNoWithdrawal: serializer.fromJson<bool>(json['isNoWithdrawal']),
       initialBalance: serializer.fromJson<int>(json['initialBalance']),
       currentBalance: serializer.fromJson<int>(json['currentBalance']),
       isActive: serializer.fromJson<bool>(json['isActive']),
@@ -303,6 +337,7 @@ class Account extends DataClass implements Insertable<Account> {
       'name': serializer.toJson<String>(name),
       'type': serializer.toJson<String>(type),
       'currency': serializer.toJson<String>(currency),
+      'isNoWithdrawal': serializer.toJson<bool>(isNoWithdrawal),
       'initialBalance': serializer.toJson<int>(initialBalance),
       'currentBalance': serializer.toJson<int>(currentBalance),
       'isActive': serializer.toJson<bool>(isActive),
@@ -315,6 +350,7 @@ class Account extends DataClass implements Insertable<Account> {
     String? name,
     String? type,
     String? currency,
+    bool? isNoWithdrawal,
     int? initialBalance,
     int? currentBalance,
     bool? isActive,
@@ -324,6 +360,7 @@ class Account extends DataClass implements Insertable<Account> {
     name: name ?? this.name,
     type: type ?? this.type,
     currency: currency ?? this.currency,
+    isNoWithdrawal: isNoWithdrawal ?? this.isNoWithdrawal,
     initialBalance: initialBalance ?? this.initialBalance,
     currentBalance: currentBalance ?? this.currentBalance,
     isActive: isActive ?? this.isActive,
@@ -335,6 +372,9 @@ class Account extends DataClass implements Insertable<Account> {
       name: data.name.present ? data.name.value : this.name,
       type: data.type.present ? data.type.value : this.type,
       currency: data.currency.present ? data.currency.value : this.currency,
+      isNoWithdrawal: data.isNoWithdrawal.present
+          ? data.isNoWithdrawal.value
+          : this.isNoWithdrawal,
       initialBalance: data.initialBalance.present
           ? data.initialBalance.value
           : this.initialBalance,
@@ -353,6 +393,7 @@ class Account extends DataClass implements Insertable<Account> {
           ..write('name: $name, ')
           ..write('type: $type, ')
           ..write('currency: $currency, ')
+          ..write('isNoWithdrawal: $isNoWithdrawal, ')
           ..write('initialBalance: $initialBalance, ')
           ..write('currentBalance: $currentBalance, ')
           ..write('isActive: $isActive, ')
@@ -367,6 +408,7 @@ class Account extends DataClass implements Insertable<Account> {
     name,
     type,
     currency,
+    isNoWithdrawal,
     initialBalance,
     currentBalance,
     isActive,
@@ -380,6 +422,7 @@ class Account extends DataClass implements Insertable<Account> {
           other.name == this.name &&
           other.type == this.type &&
           other.currency == this.currency &&
+          other.isNoWithdrawal == this.isNoWithdrawal &&
           other.initialBalance == this.initialBalance &&
           other.currentBalance == this.currentBalance &&
           other.isActive == this.isActive &&
@@ -391,6 +434,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
   final Value<String> name;
   final Value<String> type;
   final Value<String> currency;
+  final Value<bool> isNoWithdrawal;
   final Value<int> initialBalance;
   final Value<int> currentBalance;
   final Value<bool> isActive;
@@ -400,6 +444,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     this.name = const Value.absent(),
     this.type = const Value.absent(),
     this.currency = const Value.absent(),
+    this.isNoWithdrawal = const Value.absent(),
     this.initialBalance = const Value.absent(),
     this.currentBalance = const Value.absent(),
     this.isActive = const Value.absent(),
@@ -410,6 +455,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     required String name,
     this.type = const Value.absent(),
     this.currency = const Value.absent(),
+    this.isNoWithdrawal = const Value.absent(),
     this.initialBalance = const Value.absent(),
     this.currentBalance = const Value.absent(),
     this.isActive = const Value.absent(),
@@ -420,6 +466,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     Expression<String>? name,
     Expression<String>? type,
     Expression<String>? currency,
+    Expression<bool>? isNoWithdrawal,
     Expression<int>? initialBalance,
     Expression<int>? currentBalance,
     Expression<bool>? isActive,
@@ -430,6 +477,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
       if (name != null) 'name': name,
       if (type != null) 'type': type,
       if (currency != null) 'currency': currency,
+      if (isNoWithdrawal != null) 'is_no_withdrawal': isNoWithdrawal,
       if (initialBalance != null) 'initial_balance': initialBalance,
       if (currentBalance != null) 'current_balance': currentBalance,
       if (isActive != null) 'is_active': isActive,
@@ -442,6 +490,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     Value<String>? name,
     Value<String>? type,
     Value<String>? currency,
+    Value<bool>? isNoWithdrawal,
     Value<int>? initialBalance,
     Value<int>? currentBalance,
     Value<bool>? isActive,
@@ -452,6 +501,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
       name: name ?? this.name,
       type: type ?? this.type,
       currency: currency ?? this.currency,
+      isNoWithdrawal: isNoWithdrawal ?? this.isNoWithdrawal,
       initialBalance: initialBalance ?? this.initialBalance,
       currentBalance: currentBalance ?? this.currentBalance,
       isActive: isActive ?? this.isActive,
@@ -473,6 +523,9 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     }
     if (currency.present) {
       map['currency'] = Variable<String>(currency.value);
+    }
+    if (isNoWithdrawal.present) {
+      map['is_no_withdrawal'] = Variable<bool>(isNoWithdrawal.value);
     }
     if (initialBalance.present) {
       map['initial_balance'] = Variable<int>(initialBalance.value);
@@ -496,6 +549,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
           ..write('name: $name, ')
           ..write('type: $type, ')
           ..write('currency: $currency, ')
+          ..write('isNoWithdrawal: $isNoWithdrawal, ')
           ..write('initialBalance: $initialBalance, ')
           ..write('currentBalance: $currentBalance, ')
           ..write('isActive: $isActive, ')
@@ -4302,6 +4356,7 @@ typedef $$AccountsTableCreateCompanionBuilder = AccountsCompanion Function({
   required String name,
   Value<String> type,
   Value<String> currency,
+  Value<bool> isNoWithdrawal,
   Value<int> initialBalance,
   Value<int> currentBalance,
   Value<bool> isActive,
@@ -4312,6 +4367,7 @@ typedef $$AccountsTableUpdateCompanionBuilder = AccountsCompanion Function({
   Value<String> name,
   Value<String> type,
   Value<String> currency,
+  Value<bool> isNoWithdrawal,
   Value<int> initialBalance,
   Value<int> currentBalance,
   Value<bool> isActive,
@@ -4388,6 +4444,11 @@ class $$AccountsTableFilterComposer
 
   ColumnFilters<String> get currency => $composableBuilder(
     column: $table.currency,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isNoWithdrawal => $composableBuilder(
+    column: $table.isNoWithdrawal,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4491,6 +4552,11 @@ class $$AccountsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isNoWithdrawal => $composableBuilder(
+    column: $table.isNoWithdrawal,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get initialBalance => $composableBuilder(
     column: $table.initialBalance,
     builder: (column) => ColumnOrderings(column),
@@ -4532,6 +4598,11 @@ class $$AccountsTableAnnotationComposer
 
   GeneratedColumn<String> get currency =>
       $composableBuilder(column: $table.currency, builder: (column) => column);
+
+  GeneratedColumn<bool> get isNoWithdrawal => $composableBuilder(
+    column: $table.isNoWithdrawal,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<int> get initialBalance => $composableBuilder(
     column: $table.initialBalance,
@@ -4636,6 +4707,7 @@ class $$AccountsTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<String> type = const Value.absent(),
                 Value<String> currency = const Value.absent(),
+                Value<bool> isNoWithdrawal = const Value.absent(),
                 Value<int> initialBalance = const Value.absent(),
                 Value<int> currentBalance = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
@@ -4645,6 +4717,7 @@ class $$AccountsTableTableManager
                 name: name,
                 type: type,
                 currency: currency,
+                isNoWithdrawal: isNoWithdrawal,
                 initialBalance: initialBalance,
                 currentBalance: currentBalance,
                 isActive: isActive,
@@ -4656,6 +4729,7 @@ class $$AccountsTableTableManager
                 required String name,
                 Value<String> type = const Value.absent(),
                 Value<String> currency = const Value.absent(),
+                Value<bool> isNoWithdrawal = const Value.absent(),
                 Value<int> initialBalance = const Value.absent(),
                 Value<int> currentBalance = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
@@ -4665,6 +4739,7 @@ class $$AccountsTableTableManager
                 name: name,
                 type: type,
                 currency: currency,
+                isNoWithdrawal: isNoWithdrawal,
                 initialBalance: initialBalance,
                 currentBalance: currentBalance,
                 isActive: isActive,

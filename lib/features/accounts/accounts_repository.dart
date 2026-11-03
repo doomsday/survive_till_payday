@@ -29,6 +29,7 @@ class AccountsRepository {
     required String name,
     required int initialBalance,
     String type = 'BANK',
+    bool isNoWithdrawal = false,
   }) {
     _validate(name, type, initialBalance);
     return _database
@@ -37,6 +38,7 @@ class AccountsRepository {
           AccountsCompanion.insert(
             name: name.trim(),
             type: Value(type),
+            isNoWithdrawal: Value(isNoWithdrawal),
             initialBalance: Value(initialBalance),
             currentBalance: Value(initialBalance),
           ),
@@ -49,6 +51,7 @@ class AccountsRepository {
     required String type,
     required int initialBalance,
     required int currentBalance,
+    required bool isNoWithdrawal,
   }) async {
     _validate(name, type, initialBalance);
     final updated =
@@ -58,6 +61,7 @@ class AccountsRepository {
           AccountsCompanion(
             name: Value(name.trim()),
             type: Value(type),
+            isNoWithdrawal: Value(isNoWithdrawal),
             initialBalance: Value(initialBalance),
             currentBalance: Value(currentBalance),
           ),

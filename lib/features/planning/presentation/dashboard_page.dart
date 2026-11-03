@@ -97,6 +97,16 @@ class DashboardPage extends ConsumerWidget {
               ),
             ),
             _RecentTransactions(transactions: data.recentTransactions),
+            if (data.remainingTransactionsThisMonth > 0)
+              Padding(
+                padding: const EdgeInsets.only(left: 12, top: 4),
+                child: Text(
+                  'и еще ${data.remainingTransactionsThisMonth} в этом месяце',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
             const SizedBox(height: 20),
             FilledButton.icon(
               onPressed: () => _quickExpense(context, ref),
@@ -290,7 +300,7 @@ class _FinanceSummary extends StatelessWidget {
           ),
           const Divider(height: 20),
           _MetricRow(
-            label: 'Остаток на счетах',
+            label: 'Остаток доступных счетов',
             value: _money.format(finance.currentBalance),
           ),
           _MetricRow(

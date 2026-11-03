@@ -16,7 +16,8 @@ class AnalyticsService {
           (transaction) =>
               transaction.currency == query.currency &&
               !transaction.isExcludedFromStatistics &&
-              transaction.type != 'TRANSFER',
+              (transaction.type != 'TRANSFER' ||
+                  transaction.isNoWithdrawalTransfer),
         )
         .toList();
     final current = periodTransactions
@@ -62,7 +63,7 @@ class AnalyticsService {
     for (final transaction in transactions) {
       if (transaction.type == 'INCOME') {
         income += transaction.amount;
-      } else if (transaction.type == 'EXPENSE') {
+      } else if (_isExpense(transaction)) {
         expenses += transaction.amount;
         expenseCount++;
         if (transaction.isRecurring) {
@@ -92,7 +93,7 @@ class AnalyticsService {
     final names = <int?, String>{};
     final colors = <int?, int>{};
     for (final transaction in current) {
-      if (transaction.type != 'EXPENSE') continue;
+      if (!_isExpense(transaction)) continue;
       final id = transaction.categoryId;
       amounts.update(
         id,
@@ -103,7 +104,7 @@ class AnalyticsService {
       colors[id] = transaction.categoryColor ?? _defaultCategoryColor;
     }
     for (final transaction in previous) {
-      if (transaction.type != 'EXPENSE') continue;
+      if (!_isExpense(transaction)) continue;
       final id = transaction.categoryId;
       previousAmounts.update(
         id,
@@ -171,7 +172,7 @@ class AnalyticsService {
     return transactions
         .where(
           (transaction) =>
-              transaction.type == 'EXPENSE' &&
+              _isExpense(transaction) &&
               !transaction.date.isBefore(bucketStart) &&
               transaction.date.isBefore(bucketEnd) &&
               range.contains(transaction.date),
@@ -261,7 +262,7 @@ class AnalyticsService {
     final subscriptions = current.where((transaction) {
       final category = transaction.categoryName?.toLowerCase() ?? '';
       final description = transaction.description.toLowerCase();
-      return transaction.type == 'EXPENSE' &&
+      return _isExpense(transaction) &&
           transaction.isRecurring &&
           (category.contains('подпис') ||
               description.contains('подпис') ||
@@ -296,10 +297,9 @@ class AnalyticsService {
     final expenses = current
         .where((transaction) => transaction.type == 'EXPENSE')
         .toList();
-    final totalExpenses = expenses.fold<int>(
-      0,
-      (total, transaction) => total + transaction.amount,
-    );
+    final totalExpenses = current
+        .where(_isExpense)
+        .fold<int>(0, (total, transaction) => total + transaction.amount);
     final smallPurchases = _frequentSmallPurchases(current);
     if (smallPurchases != null) {
       insights.add(
@@ -393,4 +393,7 @@ class AnalyticsService {
   String _rangeName(AnalyticsRange range) =>
       '${range.start.day}.${range.start.month}.${range.start.year}–'
       '${range.end.day}.${range.end.month}.${range.end.year}';
+
+  bool _isExpense(AnalyticsTransaction transaction) =>
+      transaction.type == 'EXPENSE' || transaction.isNoWithdrawalTransfer;
 }

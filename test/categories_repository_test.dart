@@ -139,6 +139,9 @@ void main() {
         await databaseUnderTest.customStatement(
           'ALTER TABLE recurring_payments DROP COLUMN is_auto_pay',
         );
+        await databaseUnderTest.customStatement(
+          'ALTER TABLE accounts DROP COLUMN is_no_withdrawal',
+        );
         await databaseUnderTest.customStatement('PRAGMA user_version = 1');
         await databaseUnderTest.close();
 

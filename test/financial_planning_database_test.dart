@@ -79,6 +79,36 @@ void main() {
   );
 
   test(
+    'no-withdrawal account balances do not increase available limits',
+    () async {
+      await database
+          .into(database.accounts)
+          .insert(
+            AccountsCompanion.insert(
+              name: 'Доступный',
+              currentBalance: const Value(60000),
+            ),
+          );
+      await database
+          .into(database.accounts)
+          .insert(
+            AccountsCompanion.insert(
+              name: 'Без снятия',
+              currentBalance: const Value(40000),
+              isNoWithdrawal: const Value(true),
+            ),
+          );
+      await planning.setNextPayday(DateTime(2026, 11, 7));
+
+      final snapshot = await planning.getSnapshot(now: today);
+
+      expect(snapshot.currentBalance, 60000);
+      expect(snapshot.safeToSpend, 60000);
+      expect(snapshot.dailySafeToSpend, 12000);
+    },
+  );
+
+  test(
     'recurring payments accept expense categories and retain them on edit',
     () async {
       final categories = await database.select(database.categories).get();
@@ -413,6 +443,14 @@ void main() {
     'dashboard summarizes only current-month income and eligible expenses',
     () async {
       final accountId = await addAccount();
+      final restrictedAccountId = await database
+          .into(database.accounts)
+          .insert(
+            AccountsCompanion.insert(
+              name: 'Без снятия',
+              isNoWithdrawal: const Value(true),
+            ),
+          );
       final categoryId = await database
           .into(database.categories)
           .insert(
@@ -453,6 +491,56 @@ void main() {
       await addTransaction(type: 'EXPENSE', amount: 3000, date: today);
       await addTransaction(type: 'INCOME', amount: 50000, date: today);
       await addTransaction(type: 'TRANSFER', amount: 80000, date: today);
+      final transferId = await database
+          .into(database.transactions)
+          .insert(
+            TransactionsCompanion.insert(
+              accountId: accountId,
+              type: 'TRANSFER',
+              amount: 8000,
+              transactionDate: today,
+            ),
+          );
+      await (database.update(database.transactions)
+            ..where((row) => row.id.equals(transferId)))
+          .write(TransactionsCompanion(transferGroupId: Value(transferId)));
+      await database
+          .into(database.transactions)
+          .insert(
+            TransactionsCompanion.insert(
+              accountId: restrictedAccountId,
+              type: 'TRANSFER',
+              amount: 8000,
+              transactionDate: today,
+              transferGroupId: Value(transferId),
+            ),
+          );
+      final outgoingTransferId = await database
+          .into(database.transactions)
+          .insert(
+            TransactionsCompanion.insert(
+              accountId: restrictedAccountId,
+              type: 'TRANSFER',
+              amount: 4000,
+              transactionDate: today,
+            ),
+          );
+      await (database.update(
+        database.transactions,
+      )..where((row) => row.id.equals(outgoingTransferId))).write(
+        TransactionsCompanion(transferGroupId: Value(outgoingTransferId)),
+      );
+      await database
+          .into(database.transactions)
+          .insert(
+            TransactionsCompanion.insert(
+              accountId: accountId,
+              type: 'TRANSFER',
+              amount: 4000,
+              transactionDate: today,
+              transferGroupId: Value(outgoingTransferId),
+            ),
+          );
       await addTransaction(
         type: 'EXPENSE',
         amount: 9000,
@@ -475,15 +563,45 @@ void main() {
       final data = await planning.getDashboardData(now: today);
 
       expect(data.monthIncome, 50000);
-      expect(data.monthExpense, 5000);
+      expect(data.monthExpense, 13000);
       expect(data.categorySpending, hasLength(2));
       expect(data.categorySpending.first.name, 'Без категории');
-      expect(data.categorySpending.first.amount, 3000);
+      expect(data.categorySpending.first.amount, 11000);
       expect(data.categorySpending.last.name, 'Продукты');
       expect(data.categorySpending.last.color, 0xFF00AA00);
       expect(data.recentTransactions, hasLength(5));
       expect(data.upcomingPayments, hasLength(1));
       expect(data.upcomingPayments.single.name, 'Интернет');
+    },
+  );
+
+  test(
+    'dashboard recent transactions match operations order and count',
+    () async {
+      final accountId = await addAccount();
+      final transactionIds = <int>[];
+      for (var index = 0; index < 7; index++) {
+        transactionIds.add(
+          await database
+              .into(database.transactions)
+              .insert(
+                TransactionsCompanion.insert(
+                  accountId: accountId,
+                  type: 'EXPENSE',
+                  amount: 1000,
+                  transactionDate: today,
+                ),
+              ),
+        );
+      }
+
+      final data = await planning.getDashboardData(now: today);
+
+      expect(
+        data.recentTransactions.map((item) => item.transaction.id),
+        transactionIds.reversed.take(5),
+      );
+      expect(data.remainingTransactionsThisMonth, 2);
     },
   );
 }

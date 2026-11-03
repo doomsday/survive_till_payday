@@ -8,6 +8,8 @@ class Accounts extends Table {
   TextColumn get name => text().withLength(min: 1, max: 80)();
   TextColumn get type => text().withDefault(const Constant('BANK'))();
   TextColumn get currency => text().withDefault(const Constant('KZT'))();
+  BoolColumn get isNoWithdrawal =>
+      boolean().withDefault(const Constant(false))();
   IntColumn get initialBalance => integer().withDefault(const Constant(0))();
   IntColumn get currentBalance => integer().withDefault(const Constant(0))();
   BoolColumn get isActive => boolean().withDefault(const Constant(true))();
@@ -138,7 +140,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -157,6 +159,7 @@ class AppDatabase extends _$AppDatabase {
         await m.createTable(databaseMetadata);
         await _ensureMetadata();
       }
+      if (from < 6) await m.addColumn(accounts, accounts.isNoWithdrawal);
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');

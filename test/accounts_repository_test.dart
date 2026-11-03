@@ -30,6 +30,26 @@ void main() {
     expect(account.currentBalance, 125000);
     expect(account.currency, 'KZT');
     expect(account.isActive, isTrue);
+    expect(account.isNoWithdrawal, isFalse);
+  });
+
+  test('creates and updates accounts without withdrawal', () async {
+    final id = await repository.create(
+      name: 'Сейф',
+      initialBalance: 20000,
+      isNoWithdrawal: true,
+    );
+
+    await repository.update(
+      id: id,
+      name: 'Сейф',
+      type: 'BANK',
+      initialBalance: 20000,
+      currentBalance: 18000,
+      isNoWithdrawal: false,
+    );
+
+    expect((await repository.getById(id))!.isNoWithdrawal, isFalse);
   });
 
   test('rejects invalid accounts and can deactivate an account', () async {
@@ -57,6 +77,7 @@ void main() {
       type: 'CASH',
       initialBalance: 80000,
       currentBalance: 72000,
+      isNoWithdrawal: true,
     );
 
     final account = (await repository.getById(id))!;
@@ -64,6 +85,7 @@ void main() {
     expect(account.type, 'CASH');
     expect(account.initialBalance, 80000);
     expect(account.currentBalance, 72000);
+    expect(account.isNoWithdrawal, isTrue);
   });
 
   test(
