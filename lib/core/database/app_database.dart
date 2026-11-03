@@ -101,7 +101,13 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
     : super(
         executor ??
-            driftDatabase(name: 'payday'),
+            driftDatabase(
+              name: 'payday',
+              web: DriftWebOptions(
+                sqlite3Wasm: Uri.parse('sqlite3.wasm'),
+                driftWorker: Uri.parse('drift_worker.js'),
+              ),
+            ),
       );
 
   @override

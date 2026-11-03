@@ -121,5 +121,7 @@ app.*.symbols
 # Mine
 .idea
 survive_till_payday.iml
+# Widget Preview related
+.widget_preview/
 payday.sqlite
 payday.sqlite-*
