@@ -87,6 +87,30 @@ class AppSettings extends Table {
   Set<Column<Object>> get primaryKey => {key};
 }
 
+class BackupImportIdentities extends Table {
+  TextColumn get sourceDatabaseId => text()();
+  TextColumn get sourceTable => text()();
+  IntColumn get sourceId => integer()();
+  IntColumn get targetId => integer()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {
+    sourceDatabaseId,
+    sourceTable,
+    sourceId,
+  };
+}
+
+class DatabaseMetadata extends Table {
+  IntColumn get id => integer()();
+  TextColumn get databaseId => text()();
+  IntColumn get revision => integer()();
+  IntColumn get lastChangedAt => integer()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
 @DriftDatabase(
   tables: [
     Accounts,
@@ -96,6 +120,8 @@ class AppSettings extends Table {
     PaymentOccurrences,
     IncomeSchedules,
     AppSettings,
+    BackupImportIdentities,
+    DatabaseMetadata,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -112,24 +138,66 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async {
       await m.createAll();
       await _seedDefaultCategories();
+      await _ensureMetadata();
     },
     onUpgrade: (m, from, to) async {
       if (from < 2) await _seedDefaultCategories();
       if (from < 3) {
         await m.addColumn(recurringPayments, recurringPayments.isAutoPay);
       }
+      if (from < 4) await m.createTable(backupImportIdentities);
+      if (from < 5) {
+        await m.createTable(databaseMetadata);
+        await _ensureMetadata();
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
+      await _ensureMetadata();
+      await _installRevisionTriggers();
     },
   );
+
+  Future<void> _ensureMetadata() => customStatement(
+    'INSERT OR IGNORE INTO database_metadata '
+    '(id, database_id, revision, last_changed_at) '
+    "VALUES (1, lower(hex(randomblob(16))), 0, CAST(strftime('%s', 'now') AS INTEGER))",
+  );
+
+  Future<void> _installRevisionTriggers() async {
+    const trackedTables = [
+      'accounts',
+      'categories',
+      'transactions',
+      'recurring_payments',
+      'payment_occurrences',
+      'income_schedules',
+      'app_settings',
+      'backup_import_identities',
+    ];
+    for (final table in trackedTables) {
+      for (final event in const ['INSERT', 'UPDATE', 'DELETE']) {
+        final trigger = 'revision_${table}_${event.toLowerCase()}';
+        await customStatement('''
+          CREATE TRIGGER IF NOT EXISTS "$trigger"
+          AFTER $event ON "$table"
+          BEGIN
+            UPDATE database_metadata
+            SET revision = revision + 1,
+                last_changed_at = CAST(strftime('%s', 'now') AS INTEGER)
+            WHERE id = 1;
+          END
+        ''');
+      }
+    }
+  }
 
   Future<void> _seedDefaultCategories() async {
     const defaults = [

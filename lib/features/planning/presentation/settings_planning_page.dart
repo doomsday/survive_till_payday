@@ -1,8 +1,11 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/database/database_backup_service.dart';
+import '../../../core/database/database_provider.dart';
 import '../../accounts/presentation/account_dialog.dart';
 import '../planning_providers.dart';
 
@@ -21,6 +24,7 @@ class _PlanningSettingsPageState extends ConsumerState<PlanningSettingsPage> {
   bool _reserveEnabled = false;
   bool _initialized = false;
   bool _saving = false;
+  bool _databaseBusy = false;
 
   @override
   void initState() {
@@ -60,6 +64,17 @@ class _PlanningSettingsPageState extends ConsumerState<PlanningSettingsPage> {
           padding: const EdgeInsets.all(16),
           children: [
             const AccountsSettingsSection(),
+            const SizedBox(height: 24),
+            Text('Данные', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.storage_outlined),
+                title: const Text('База данных'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _databaseBusy ? null : _openDatabaseDialog,
+              ),
+            ),
             const SizedBox(height: 24),
             Text('Категории', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
@@ -137,6 +152,164 @@ class _PlanningSettingsPageState extends ConsumerState<PlanningSettingsPage> {
     if (selected != null) setState(() => _payday = selected);
   }
 
+  Future<void> _openDatabaseDialog() async {
+    final service = DatabaseBackupService(ref.read(databaseProvider));
+    late final List<LocalDatabaseBackup> backups;
+    try {
+      backups = await service.localBackups();
+    } catch (error) {
+      if (mounted) await _showDatabaseError(error);
+      return;
+    }
+    if (!mounted) return;
+    final action = await showDialog<_DatabaseAction>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('База данных'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, _DatabaseAction.export),
+            child: const Text('Экспорт'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, _DatabaseAction.import),
+            child: const Text('Импорт'),
+          ),
+          if (backups.isNotEmpty)
+            TextButton(
+              onPressed: () =>
+                  Navigator.pop(context, _DatabaseAction.restoreLocal),
+              child: const Text('Восстановить локальную копию'),
+            ),
+        ],
+      ),
+    );
+    if (action == null || !mounted) return;
+    setState(() => _databaseBusy = true);
+    try {
+      switch (action) {
+        case _DatabaseAction.export:
+          await _exportDatabase(service);
+          break;
+        case _DatabaseAction.import:
+          await _importDatabase(service);
+          break;
+        case _DatabaseAction.restoreLocal:
+          await _restoreLocalBackup(service, backups);
+          break;
+      }
+    } catch (error) {
+      if (mounted) await _showDatabaseError(error);
+    } finally {
+      if (mounted) setState(() => _databaseBusy = false);
+    }
+  }
+
+  Future<void> _exportDatabase(DatabaseBackupService service) async {
+    final saved = await FilePicker.saveFile(
+      fileName: 'payday-backup.sqlite',
+      bytes: await service.createSnapshot(),
+      mimeType: 'application/vnd.sqlite3',
+      dialogTitle: 'Сохранить резервную копию',
+    );
+    if (saved != null && mounted) _showDatabaseSuccess('Экспорт завершён.');
+  }
+
+  Future<void> _importDatabase(DatabaseBackupService service) async {
+    final selected = await FilePicker.pickFile(
+      dialogTitle: 'Выберите резервную копию Payday',
+      type: FileType.custom,
+      allowedExtensions: const ['sqlite', 'db'],
+    );
+    if (selected == null) return;
+    final bytes = await selected.readAsBytes();
+    final comparison = await service.inspectImport(bytes);
+    if (!mounted || !await _confirmReplacement(comparison)) return;
+    final message = await service.replaceImport(bytes);
+    if (mounted) _showDatabaseSuccess(message);
+  }
+
+  Future<void> _restoreLocalBackup(
+    DatabaseBackupService service,
+    List<LocalDatabaseBackup> backups,
+  ) async {
+    final backup = await showDialog<LocalDatabaseBackup>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Локальные резервные копии'),
+        children: [
+          for (final item in backups)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, item),
+              child: Text(
+                DateFormat('dd.MM.yyyy HH:mm').format(item.createdAt),
+              ),
+            ),
+        ],
+      ),
+    );
+    if (backup == null || !mounted) return;
+    final comparison = await service.inspectLocalBackup(backup.path);
+    if (!mounted || !await _confirmReplacement(comparison)) return;
+    final message = await service.restoreLocalBackup(backup.path);
+    if (mounted) _showDatabaseSuccess(message);
+  }
+
+  Future<bool> _confirmReplacement(BackupComparison comparison) async =>
+      await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(switch ((comparison.isOlder, comparison.hasRevision)) {
+            (true, _) => 'В резервной копии более старые данные',
+            (_, false) => 'Версию данных определить нельзя',
+            _ => 'Заменить текущую базу данных?',
+          }),
+          content: Text(
+            comparison.isOlder
+                ? 'Выбранная копия старее текущей базы. Заменить текущие данные этой копией? Перед заменой будет сохранена резервная копия.'
+                : !comparison.hasRevision
+                ? 'В копии нет метки изменений, поэтому нельзя определить, новее ли она. Заменить текущие данные? Перед заменой будет сохранена резервная копия.'
+                : 'Текущая база будет заменена выбранной копией. Перед заменой будет сохранена резервная копия.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Отмена'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Заменить'),
+            ),
+          ],
+        ),
+      ) ??
+      false;
+
+  Future<void> _showDatabaseError(Object error) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Не удалось обработать базу данных'),
+        content: Text(
+          error is DatabaseBackupException
+              ? error.message
+              : 'Проверьте выбранный файл и повторите попытку.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Понятно'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDatabaseSuccess(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Future<void> _save() async {
     final reserve = int.tryParse(_reserveController.text.trim());
     if (reserve == null || reserve < 0) {
@@ -166,3 +339,5 @@ class _PlanningSettingsPageState extends ConsumerState<PlanningSettingsPage> {
     }
   }
 }
+
+enum _DatabaseAction { export, import, restoreLocal }

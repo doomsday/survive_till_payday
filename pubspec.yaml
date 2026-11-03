@@ -46,6 +46,9 @@ dependencies:
   go_router: ^18.1.2
   intl: ^0.20.3
   path: ^1.9.1
+  file_picker: ^13.3.2
+  path_provider: ^2.1.6
+  sqlite3: ^3.8.0
 
 dev_dependencies:
   flutter_test:

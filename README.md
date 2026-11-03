@@ -25,6 +25,14 @@ required.
 - The Operations tab supports searchable, date/account/category/type-filtered
   transaction history, income and expense creation/editing/deletion, and
   paired same-currency transfers that update both account balances.
+- Settings → **База данных** exports consistent SQLite snapshots and can
+  replace the current database from a selected backup after confirmation.
+  Every record change advances a database revision; importing an older copy
+  requires explicit confirmation. Before replacement, the app verifies the
+  backup and stores a local snapshot, retaining the six newest snapshots for
+  recovery. They can be restored from the database actions. This is a
+  full-database replacement, not a merge. File operations are available in
+  native app builds; the web build does not support SQLite file transfer.
 
 ## Development
 

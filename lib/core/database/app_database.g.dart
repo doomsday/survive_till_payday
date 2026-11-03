@@ -3615,6 +3615,652 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
   }
 }
 
+class $BackupImportIdentitiesTable extends BackupImportIdentities
+    with TableInfo<$BackupImportIdentitiesTable, BackupImportIdentity> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BackupImportIdentitiesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _sourceDatabaseIdMeta = const VerificationMeta(
+    'sourceDatabaseId',
+  );
+  @override
+  late final GeneratedColumn<String> sourceDatabaseId = GeneratedColumn<String>(
+    'source_database_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sourceTableMeta = const VerificationMeta(
+    'sourceTable',
+  );
+  @override
+  late final GeneratedColumn<String> sourceTable = GeneratedColumn<String>(
+    'source_table',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sourceIdMeta = const VerificationMeta(
+    'sourceId',
+  );
+  @override
+  late final GeneratedColumn<int> sourceId = GeneratedColumn<int>(
+    'source_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _targetIdMeta = const VerificationMeta(
+    'targetId',
+  );
+  @override
+  late final GeneratedColumn<int> targetId = GeneratedColumn<int>(
+    'target_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    sourceDatabaseId,
+    sourceTable,
+    sourceId,
+    targetId,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'backup_import_identities';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<BackupImportIdentity> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('source_database_id')) {
+      context.handle(
+        _sourceDatabaseIdMeta,
+        sourceDatabaseId.isAcceptableOrUnknown(
+          data['source_database_id']!,
+          _sourceDatabaseIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceDatabaseIdMeta);
+    }
+    if (data.containsKey('source_table')) {
+      context.handle(
+        _sourceTableMeta,
+        sourceTable.isAcceptableOrUnknown(
+          data['source_table']!,
+          _sourceTableMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceTableMeta);
+    }
+    if (data.containsKey('source_id')) {
+      context.handle(
+        _sourceIdMeta,
+        sourceId.isAcceptableOrUnknown(data['source_id']!, _sourceIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceIdMeta);
+    }
+    if (data.containsKey('target_id')) {
+      context.handle(
+        _targetIdMeta,
+        targetId.isAcceptableOrUnknown(data['target_id']!, _targetIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_targetIdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {
+    sourceDatabaseId,
+    sourceTable,
+    sourceId,
+  };
+  @override
+  BackupImportIdentity map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BackupImportIdentity(
+      sourceDatabaseId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_database_id'],
+      )!,
+      sourceTable: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_table'],
+      )!,
+      sourceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}source_id'],
+      )!,
+      targetId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}target_id'],
+      )!,
+    );
+  }
+
+  @override
+  $BackupImportIdentitiesTable createAlias(String alias) {
+    return $BackupImportIdentitiesTable(attachedDatabase, alias);
+  }
+}
+
+class BackupImportIdentity extends DataClass
+    implements Insertable<BackupImportIdentity> {
+  final String sourceDatabaseId;
+  final String sourceTable;
+  final int sourceId;
+  final int targetId;
+  const BackupImportIdentity({
+    required this.sourceDatabaseId,
+    required this.sourceTable,
+    required this.sourceId,
+    required this.targetId,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['source_database_id'] = Variable<String>(sourceDatabaseId);
+    map['source_table'] = Variable<String>(sourceTable);
+    map['source_id'] = Variable<int>(sourceId);
+    map['target_id'] = Variable<int>(targetId);
+    return map;
+  }
+
+  BackupImportIdentitiesCompanion toCompanion(bool nullToAbsent) {
+    return BackupImportIdentitiesCompanion(
+      sourceDatabaseId: Value(sourceDatabaseId),
+      sourceTable: Value(sourceTable),
+      sourceId: Value(sourceId),
+      targetId: Value(targetId),
+    );
+  }
+
+  factory BackupImportIdentity.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BackupImportIdentity(
+      sourceDatabaseId: serializer.fromJson<String>(json['sourceDatabaseId']),
+      sourceTable: serializer.fromJson<String>(json['sourceTable']),
+      sourceId: serializer.fromJson<int>(json['sourceId']),
+      targetId: serializer.fromJson<int>(json['targetId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'sourceDatabaseId': serializer.toJson<String>(sourceDatabaseId),
+      'sourceTable': serializer.toJson<String>(sourceTable),
+      'sourceId': serializer.toJson<int>(sourceId),
+      'targetId': serializer.toJson<int>(targetId),
+    };
+  }
+
+  BackupImportIdentity copyWith({
+    String? sourceDatabaseId,
+    String? sourceTable,
+    int? sourceId,
+    int? targetId,
+  }) => BackupImportIdentity(
+    sourceDatabaseId: sourceDatabaseId ?? this.sourceDatabaseId,
+    sourceTable: sourceTable ?? this.sourceTable,
+    sourceId: sourceId ?? this.sourceId,
+    targetId: targetId ?? this.targetId,
+  );
+  BackupImportIdentity copyWithCompanion(BackupImportIdentitiesCompanion data) {
+    return BackupImportIdentity(
+      sourceDatabaseId: data.sourceDatabaseId.present
+          ? data.sourceDatabaseId.value
+          : this.sourceDatabaseId,
+      sourceTable: data.sourceTable.present
+          ? data.sourceTable.value
+          : this.sourceTable,
+      sourceId: data.sourceId.present ? data.sourceId.value : this.sourceId,
+      targetId: data.targetId.present ? data.targetId.value : this.targetId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BackupImportIdentity(')
+          ..write('sourceDatabaseId: $sourceDatabaseId, ')
+          ..write('sourceTable: $sourceTable, ')
+          ..write('sourceId: $sourceId, ')
+          ..write('targetId: $targetId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(sourceDatabaseId, sourceTable, sourceId, targetId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BackupImportIdentity &&
+          other.sourceDatabaseId == this.sourceDatabaseId &&
+          other.sourceTable == this.sourceTable &&
+          other.sourceId == this.sourceId &&
+          other.targetId == this.targetId);
+}
+
+class BackupImportIdentitiesCompanion
+    extends UpdateCompanion<BackupImportIdentity> {
+  final Value<String> sourceDatabaseId;
+  final Value<String> sourceTable;
+  final Value<int> sourceId;
+  final Value<int> targetId;
+  final Value<int> rowid;
+  const BackupImportIdentitiesCompanion({
+    this.sourceDatabaseId = const Value.absent(),
+    this.sourceTable = const Value.absent(),
+    this.sourceId = const Value.absent(),
+    this.targetId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  BackupImportIdentitiesCompanion.insert({
+    required String sourceDatabaseId,
+    required String sourceTable,
+    required int sourceId,
+    required int targetId,
+    this.rowid = const Value.absent(),
+  }) : sourceDatabaseId = Value(sourceDatabaseId),
+       sourceTable = Value(sourceTable),
+       sourceId = Value(sourceId),
+       targetId = Value(targetId);
+  static Insertable<BackupImportIdentity> custom({
+    Expression<String>? sourceDatabaseId,
+    Expression<String>? sourceTable,
+    Expression<int>? sourceId,
+    Expression<int>? targetId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (sourceDatabaseId != null) 'source_database_id': sourceDatabaseId,
+      if (sourceTable != null) 'source_table': sourceTable,
+      if (sourceId != null) 'source_id': sourceId,
+      if (targetId != null) 'target_id': targetId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  BackupImportIdentitiesCompanion copyWith({
+    Value<String>? sourceDatabaseId,
+    Value<String>? sourceTable,
+    Value<int>? sourceId,
+    Value<int>? targetId,
+    Value<int>? rowid,
+  }) {
+    return BackupImportIdentitiesCompanion(
+      sourceDatabaseId: sourceDatabaseId ?? this.sourceDatabaseId,
+      sourceTable: sourceTable ?? this.sourceTable,
+      sourceId: sourceId ?? this.sourceId,
+      targetId: targetId ?? this.targetId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (sourceDatabaseId.present) {
+      map['source_database_id'] = Variable<String>(sourceDatabaseId.value);
+    }
+    if (sourceTable.present) {
+      map['source_table'] = Variable<String>(sourceTable.value);
+    }
+    if (sourceId.present) {
+      map['source_id'] = Variable<int>(sourceId.value);
+    }
+    if (targetId.present) {
+      map['target_id'] = Variable<int>(targetId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BackupImportIdentitiesCompanion(')
+          ..write('sourceDatabaseId: $sourceDatabaseId, ')
+          ..write('sourceTable: $sourceTable, ')
+          ..write('sourceId: $sourceId, ')
+          ..write('targetId: $targetId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $DatabaseMetadataTable extends DatabaseMetadata
+    with TableInfo<$DatabaseMetadataTable, DatabaseMetadataData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DatabaseMetadataTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _databaseIdMeta = const VerificationMeta(
+    'databaseId',
+  );
+  @override
+  late final GeneratedColumn<String> databaseId = GeneratedColumn<String>(
+    'database_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _revisionMeta = const VerificationMeta(
+    'revision',
+  );
+  @override
+  late final GeneratedColumn<int> revision = GeneratedColumn<int>(
+    'revision',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lastChangedAtMeta = const VerificationMeta(
+    'lastChangedAt',
+  );
+  @override
+  late final GeneratedColumn<int> lastChangedAt = GeneratedColumn<int>(
+    'last_changed_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    databaseId,
+    revision,
+    lastChangedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'database_metadata';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<DatabaseMetadataData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('database_id')) {
+      context.handle(
+        _databaseIdMeta,
+        databaseId.isAcceptableOrUnknown(data['database_id']!, _databaseIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_databaseIdMeta);
+    }
+    if (data.containsKey('revision')) {
+      context.handle(
+        _revisionMeta,
+        revision.isAcceptableOrUnknown(data['revision']!, _revisionMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_revisionMeta);
+    }
+    if (data.containsKey('last_changed_at')) {
+      context.handle(
+        _lastChangedAtMeta,
+        lastChangedAt.isAcceptableOrUnknown(
+          data['last_changed_at']!,
+          _lastChangedAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_lastChangedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  DatabaseMetadataData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DatabaseMetadataData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      databaseId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}database_id'],
+      )!,
+      revision: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}revision'],
+      )!,
+      lastChangedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}last_changed_at'],
+      )!,
+    );
+  }
+
+  @override
+  $DatabaseMetadataTable createAlias(String alias) {
+    return $DatabaseMetadataTable(attachedDatabase, alias);
+  }
+}
+
+class DatabaseMetadataData extends DataClass
+    implements Insertable<DatabaseMetadataData> {
+  final int id;
+  final String databaseId;
+  final int revision;
+  final int lastChangedAt;
+  const DatabaseMetadataData({
+    required this.id,
+    required this.databaseId,
+    required this.revision,
+    required this.lastChangedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['database_id'] = Variable<String>(databaseId);
+    map['revision'] = Variable<int>(revision);
+    map['last_changed_at'] = Variable<int>(lastChangedAt);
+    return map;
+  }
+
+  DatabaseMetadataCompanion toCompanion(bool nullToAbsent) {
+    return DatabaseMetadataCompanion(
+      id: Value(id),
+      databaseId: Value(databaseId),
+      revision: Value(revision),
+      lastChangedAt: Value(lastChangedAt),
+    );
+  }
+
+  factory DatabaseMetadataData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DatabaseMetadataData(
+      id: serializer.fromJson<int>(json['id']),
+      databaseId: serializer.fromJson<String>(json['databaseId']),
+      revision: serializer.fromJson<int>(json['revision']),
+      lastChangedAt: serializer.fromJson<int>(json['lastChangedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'databaseId': serializer.toJson<String>(databaseId),
+      'revision': serializer.toJson<int>(revision),
+      'lastChangedAt': serializer.toJson<int>(lastChangedAt),
+    };
+  }
+
+  DatabaseMetadataData copyWith({
+    int? id,
+    String? databaseId,
+    int? revision,
+    int? lastChangedAt,
+  }) => DatabaseMetadataData(
+    id: id ?? this.id,
+    databaseId: databaseId ?? this.databaseId,
+    revision: revision ?? this.revision,
+    lastChangedAt: lastChangedAt ?? this.lastChangedAt,
+  );
+  DatabaseMetadataData copyWithCompanion(DatabaseMetadataCompanion data) {
+    return DatabaseMetadataData(
+      id: data.id.present ? data.id.value : this.id,
+      databaseId: data.databaseId.present
+          ? data.databaseId.value
+          : this.databaseId,
+      revision: data.revision.present ? data.revision.value : this.revision,
+      lastChangedAt: data.lastChangedAt.present
+          ? data.lastChangedAt.value
+          : this.lastChangedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DatabaseMetadataData(')
+          ..write('id: $id, ')
+          ..write('databaseId: $databaseId, ')
+          ..write('revision: $revision, ')
+          ..write('lastChangedAt: $lastChangedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, databaseId, revision, lastChangedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DatabaseMetadataData &&
+          other.id == this.id &&
+          other.databaseId == this.databaseId &&
+          other.revision == this.revision &&
+          other.lastChangedAt == this.lastChangedAt);
+}
+
+class DatabaseMetadataCompanion extends UpdateCompanion<DatabaseMetadataData> {
+  final Value<int> id;
+  final Value<String> databaseId;
+  final Value<int> revision;
+  final Value<int> lastChangedAt;
+  const DatabaseMetadataCompanion({
+    this.id = const Value.absent(),
+    this.databaseId = const Value.absent(),
+    this.revision = const Value.absent(),
+    this.lastChangedAt = const Value.absent(),
+  });
+  DatabaseMetadataCompanion.insert({
+    this.id = const Value.absent(),
+    required String databaseId,
+    required int revision,
+    required int lastChangedAt,
+  }) : databaseId = Value(databaseId),
+       revision = Value(revision),
+       lastChangedAt = Value(lastChangedAt);
+  static Insertable<DatabaseMetadataData> custom({
+    Expression<int>? id,
+    Expression<String>? databaseId,
+    Expression<int>? revision,
+    Expression<int>? lastChangedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (databaseId != null) 'database_id': databaseId,
+      if (revision != null) 'revision': revision,
+      if (lastChangedAt != null) 'last_changed_at': lastChangedAt,
+    });
+  }
+
+  DatabaseMetadataCompanion copyWith({
+    Value<int>? id,
+    Value<String>? databaseId,
+    Value<int>? revision,
+    Value<int>? lastChangedAt,
+  }) {
+    return DatabaseMetadataCompanion(
+      id: id ?? this.id,
+      databaseId: databaseId ?? this.databaseId,
+      revision: revision ?? this.revision,
+      lastChangedAt: lastChangedAt ?? this.lastChangedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (databaseId.present) {
+      map['database_id'] = Variable<String>(databaseId.value);
+    }
+    if (revision.present) {
+      map['revision'] = Variable<int>(revision.value);
+    }
+    if (lastChangedAt.present) {
+      map['last_changed_at'] = Variable<int>(lastChangedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DatabaseMetadataCompanion(')
+          ..write('id: $id, ')
+          ..write('databaseId: $databaseId, ')
+          ..write('revision: $revision, ')
+          ..write('lastChangedAt: $lastChangedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3629,6 +4275,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $AppSettingsTable appSettings = $AppSettingsTable(this);
+  late final $BackupImportIdentitiesTable backupImportIdentities =
+      $BackupImportIdentitiesTable(this);
+  late final $DatabaseMetadataTable databaseMetadata = $DatabaseMetadataTable(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3641,6 +4292,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     paymentOccurrences,
     incomeSchedules,
     appSettings,
+    backupImportIdentities,
+    databaseMetadata,
   ];
 }
 
@@ -6520,6 +7173,422 @@ typedef $$AppSettingsTableProcessedTableManager =
       AppSetting,
       PrefetchHooks Function()
     >;
+typedef $$BackupImportIdentitiesTableCreateCompanionBuilder =
+    BackupImportIdentitiesCompanion Function({
+      required String sourceDatabaseId,
+      required String sourceTable,
+      required int sourceId,
+      required int targetId,
+      Value<int> rowid,
+    });
+typedef $$BackupImportIdentitiesTableUpdateCompanionBuilder =
+    BackupImportIdentitiesCompanion Function({
+      Value<String> sourceDatabaseId,
+      Value<String> sourceTable,
+      Value<int> sourceId,
+      Value<int> targetId,
+      Value<int> rowid,
+    });
+
+class $$BackupImportIdentitiesTableFilterComposer
+    extends Composer<_$AppDatabase, $BackupImportIdentitiesTable> {
+  $$BackupImportIdentitiesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get sourceDatabaseId => $composableBuilder(
+    column: $table.sourceDatabaseId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceTable => $composableBuilder(
+    column: $table.sourceTable,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sourceId => $composableBuilder(
+    column: $table.sourceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get targetId => $composableBuilder(
+    column: $table.targetId,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$BackupImportIdentitiesTableOrderingComposer
+    extends Composer<_$AppDatabase, $BackupImportIdentitiesTable> {
+  $$BackupImportIdentitiesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get sourceDatabaseId => $composableBuilder(
+    column: $table.sourceDatabaseId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceTable => $composableBuilder(
+    column: $table.sourceTable,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sourceId => $composableBuilder(
+    column: $table.sourceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get targetId => $composableBuilder(
+    column: $table.targetId,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$BackupImportIdentitiesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BackupImportIdentitiesTable> {
+  $$BackupImportIdentitiesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get sourceDatabaseId => $composableBuilder(
+    column: $table.sourceDatabaseId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sourceTable => $composableBuilder(
+    column: $table.sourceTable,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get sourceId =>
+      $composableBuilder(column: $table.sourceId, builder: (column) => column);
+
+  GeneratedColumn<int> get targetId =>
+      $composableBuilder(column: $table.targetId, builder: (column) => column);
+}
+
+class $$BackupImportIdentitiesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $BackupImportIdentitiesTable,
+          BackupImportIdentity,
+          $$BackupImportIdentitiesTableFilterComposer,
+          $$BackupImportIdentitiesTableOrderingComposer,
+          $$BackupImportIdentitiesTableAnnotationComposer,
+          $$BackupImportIdentitiesTableCreateCompanionBuilder,
+          $$BackupImportIdentitiesTableUpdateCompanionBuilder,
+          (
+            BackupImportIdentity,
+            BaseReferences<
+              _$AppDatabase,
+              $BackupImportIdentitiesTable,
+              BackupImportIdentity
+            >,
+          ),
+          BackupImportIdentity,
+          PrefetchHooks Function()
+        > {
+  $$BackupImportIdentitiesTableTableManager(
+    _$AppDatabase db,
+    $BackupImportIdentitiesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BackupImportIdentitiesTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$BackupImportIdentitiesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$BackupImportIdentitiesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> sourceDatabaseId = const Value.absent(),
+                Value<String> sourceTable = const Value.absent(),
+                Value<int> sourceId = const Value.absent(),
+                Value<int> targetId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BackupImportIdentitiesCompanion(
+                sourceDatabaseId: sourceDatabaseId,
+                sourceTable: sourceTable,
+                sourceId: sourceId,
+                targetId: targetId,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String sourceDatabaseId,
+                required String sourceTable,
+                required int sourceId,
+                required int targetId,
+                Value<int> rowid = const Value.absent(),
+              }) => BackupImportIdentitiesCompanion.insert(
+                sourceDatabaseId: sourceDatabaseId,
+                sourceTable: sourceTable,
+                sourceId: sourceId,
+                targetId: targetId,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<
+                    $BackupImportIdentitiesTable,
+                    BackupImportIdentity
+                  >(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $BackupImportIdentitiesTable,
+                    BackupImportIdentity
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$BackupImportIdentitiesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $BackupImportIdentitiesTable,
+      BackupImportIdentity,
+      $$BackupImportIdentitiesTableFilterComposer,
+      $$BackupImportIdentitiesTableOrderingComposer,
+      $$BackupImportIdentitiesTableAnnotationComposer,
+      $$BackupImportIdentitiesTableCreateCompanionBuilder,
+      $$BackupImportIdentitiesTableUpdateCompanionBuilder,
+      (
+        BackupImportIdentity,
+        BaseReferences<
+          _$AppDatabase,
+          $BackupImportIdentitiesTable,
+          BackupImportIdentity
+        >,
+      ),
+      BackupImportIdentity,
+      PrefetchHooks Function()
+    >;
+typedef $$DatabaseMetadataTableCreateCompanionBuilder =
+    DatabaseMetadataCompanion Function({
+      Value<int> id,
+      required String databaseId,
+      required int revision,
+      required int lastChangedAt,
+    });
+typedef $$DatabaseMetadataTableUpdateCompanionBuilder =
+    DatabaseMetadataCompanion Function({
+      Value<int> id,
+      Value<String> databaseId,
+      Value<int> revision,
+      Value<int> lastChangedAt,
+    });
+
+class $$DatabaseMetadataTableFilterComposer
+    extends Composer<_$AppDatabase, $DatabaseMetadataTable> {
+  $$DatabaseMetadataTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get databaseId => $composableBuilder(
+    column: $table.databaseId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get revision => $composableBuilder(
+    column: $table.revision,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastChangedAt => $composableBuilder(
+    column: $table.lastChangedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$DatabaseMetadataTableOrderingComposer
+    extends Composer<_$AppDatabase, $DatabaseMetadataTable> {
+  $$DatabaseMetadataTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get databaseId => $composableBuilder(
+    column: $table.databaseId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get revision => $composableBuilder(
+    column: $table.revision,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastChangedAt => $composableBuilder(
+    column: $table.lastChangedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$DatabaseMetadataTableAnnotationComposer
+    extends Composer<_$AppDatabase, $DatabaseMetadataTable> {
+  $$DatabaseMetadataTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get databaseId => $composableBuilder(
+    column: $table.databaseId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get revision =>
+      $composableBuilder(column: $table.revision, builder: (column) => column);
+
+  GeneratedColumn<int> get lastChangedAt => $composableBuilder(
+    column: $table.lastChangedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$DatabaseMetadataTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $DatabaseMetadataTable,
+          DatabaseMetadataData,
+          $$DatabaseMetadataTableFilterComposer,
+          $$DatabaseMetadataTableOrderingComposer,
+          $$DatabaseMetadataTableAnnotationComposer,
+          $$DatabaseMetadataTableCreateCompanionBuilder,
+          $$DatabaseMetadataTableUpdateCompanionBuilder,
+          (
+            DatabaseMetadataData,
+            BaseReferences<
+              _$AppDatabase,
+              $DatabaseMetadataTable,
+              DatabaseMetadataData
+            >,
+          ),
+          DatabaseMetadataData,
+          PrefetchHooks Function()
+        > {
+  $$DatabaseMetadataTableTableManager(
+    _$AppDatabase db,
+    $DatabaseMetadataTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DatabaseMetadataTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$DatabaseMetadataTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$DatabaseMetadataTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> databaseId = const Value.absent(),
+                Value<int> revision = const Value.absent(),
+                Value<int> lastChangedAt = const Value.absent(),
+              }) => DatabaseMetadataCompanion(
+                id: id,
+                databaseId: databaseId,
+                revision: revision,
+                lastChangedAt: lastChangedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String databaseId,
+                required int revision,
+                required int lastChangedAt,
+              }) => DatabaseMetadataCompanion.insert(
+                id: id,
+                databaseId: databaseId,
+                revision: revision,
+                lastChangedAt: lastChangedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$DatabaseMetadataTable, DatabaseMetadataData>(
+                    table,
+                  ),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $DatabaseMetadataTable,
+                    DatabaseMetadataData
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$DatabaseMetadataTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $DatabaseMetadataTable,
+      DatabaseMetadataData,
+      $$DatabaseMetadataTableFilterComposer,
+      $$DatabaseMetadataTableOrderingComposer,
+      $$DatabaseMetadataTableAnnotationComposer,
+      $$DatabaseMetadataTableCreateCompanionBuilder,
+      $$DatabaseMetadataTableUpdateCompanionBuilder,
+      (
+        DatabaseMetadataData,
+        BaseReferences<
+          _$AppDatabase,
+          $DatabaseMetadataTable,
+          DatabaseMetadataData
+        >,
+      ),
+      DatabaseMetadataData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -6538,4 +7607,11 @@ class $AppDatabaseManager {
       $$IncomeSchedulesTableTableManager(_db, _db.incomeSchedules);
   $$AppSettingsTableTableManager get appSettings =>
       $$AppSettingsTableTableManager(_db, _db.appSettings);
+  $$BackupImportIdentitiesTableTableManager get backupImportIdentities =>
+      $$BackupImportIdentitiesTableTableManager(
+        _db,
+        _db.backupImportIdentities,
+      );
+  $$DatabaseMetadataTableTableManager get databaseMetadata =>
+      $$DatabaseMetadataTableTableManager(_db, _db.databaseMetadata);
 }
