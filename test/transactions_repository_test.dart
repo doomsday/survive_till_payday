@@ -70,6 +70,49 @@ void main() {
   );
 
   test(
+    'unavoidable expense is persisted and deducted from account balance',
+    () async {
+      final accountId = await addAccount('Kaspi', 100000);
+      final transactionId = await repository.addTransaction(
+        type: 'EXPENSE',
+        accountId: accountId,
+        amount: 10000,
+        date: DateTime(2026, 11, 3),
+        description: 'Бензин',
+        isUnavoidable: true,
+      );
+
+      var transaction = await (database.select(
+        database.transactions,
+      )..where((row) => row.id.equals(transactionId))).getSingle();
+      expect(transaction.isUnavoidable, isTrue);
+      expect(
+        (await database.select(database.accounts).getSingle()).currentBalance,
+        90000,
+      );
+
+      await repository.updateTransaction(
+        id: transactionId,
+        type: 'EXPENSE',
+        accountId: accountId,
+        amount: 12000,
+        date: DateTime(2026, 11, 3),
+        description: 'Заправка',
+        isExcludedFromStatistics: false,
+        isUnavoidable: false,
+      );
+      transaction = await (database.select(
+        database.transactions,
+      )..where((row) => row.id.equals(transactionId))).getSingle();
+      expect(transaction.isUnavoidable, isFalse);
+      expect(
+        (await database.select(database.accounts).getSingle()).currentBalance,
+        88000,
+      );
+    },
+  );
+
+  test(
     'transfers create a single filtered entry and reverse atomically',
     () async {
       final sourceId = await addAccount('Kaspi', 100000);

@@ -32,7 +32,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Можно потратить до зарплаты'), findsOneWidget);
+    expect(find.textContaining('Укажите дату зарплаты'), findsOneWidget);
     expect(find.text('Обзор'), findsWidgets);
     final dashboardScroll = find.descendant(
       of: find.byType(ListView).first,

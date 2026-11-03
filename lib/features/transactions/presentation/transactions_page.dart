@@ -389,6 +389,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           categoryId: form.categoryId,
           description: form.description,
           isExcludedFromStatistics: form.isExcludedFromStatistics,
+          isUnavoidable: form.isUnavoidable,
         );
       }
       return;
@@ -412,6 +413,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         categoryId: form.categoryId,
         description: form.description,
         isExcludedFromStatistics: form.isExcludedFromStatistics,
+        isUnavoidable: form.isUnavoidable,
       );
     }
   }
@@ -580,6 +582,7 @@ class _TransactionTile extends StatelessWidget {
             if (entry.categoryName != null) entry.categoryName!,
             if (!transfer) entry.accountName,
             if (transaction.isExcludedFromStatistics) 'Не в статистике',
+            if (transaction.isUnavoidable) 'Неизбежная трата',
             if (transaction.linkedPaymentOccurrenceId != null) 'Платеж',
           ].join(' · '),
           maxLines: 1,
@@ -636,6 +639,7 @@ class _TransactionFormState extends State<_TransactionForm> {
   late int? _categoryId;
   late DateTime _date;
   late bool _excluded;
+  late bool _unavoidable;
   bool _saving = false;
   String? _error;
 
@@ -644,13 +648,16 @@ class _TransactionFormState extends State<_TransactionForm> {
     super.initState();
     final entry = widget.entry;
     final transaction = entry?.transaction;
+    final isTransfer = transaction?.type == 'TRANSFER';
     _type = transaction?.type ?? 'EXPENSE';
-    _accountId = entry?.isTransferSource == false
+    _accountId = isTransfer && entry?.isTransferSource == false
         ? entry?.transferPeerAccountId ?? widget.accounts.first.id
         : transaction?.accountId ?? widget.accounts.first.id;
-    _targetAccountId = entry?.isTransferSource == false
-        ? transaction?.accountId
-        : entry?.transferPeerAccountId;
+    _targetAccountId = isTransfer
+        ? entry?.isTransferSource == false
+              ? transaction?.accountId
+              : entry?.transferPeerAccountId
+        : null;
     if (_targetAccountId == _accountId) {
       _targetAccountId = widget.accounts
           .where((item) => item.id != _accountId)
@@ -660,6 +667,7 @@ class _TransactionFormState extends State<_TransactionForm> {
     _categoryId = transaction?.categoryId;
     _date = transaction?.transactionDate ?? DateTime.now();
     _excluded = transaction?.isExcludedFromStatistics ?? false;
+    _unavoidable = transaction?.isUnavoidable ?? false;
     _amount = TextEditingController(
       text: transaction == null ? '' : '${transaction.amount}',
     );
@@ -815,6 +823,14 @@ class _TransactionFormState extends State<_TransactionForm> {
                 value: _excluded,
                 onChanged: (value) => setState(() => _excluded = value),
               ),
+            if (_type == 'EXPENSE')
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Неизбежная трата'),
+                subtitle: const Text('Не учитывается в дневной норме трат'),
+                value: _unavoidable,
+                onChanged: (value) => setState(() => _unavoidable = value),
+              ),
             if (_error != null)
               Text(
                 _error!,
@@ -887,6 +903,7 @@ class _TransactionFormState extends State<_TransactionForm> {
           description: _description.text.trim(),
           date: _date,
           isExcludedFromStatistics: _excluded,
+          isUnavoidable: _type == 'EXPENSE' && _unavoidable,
         ),
       );
       if (mounted) Navigator.pop(context, true);
@@ -912,6 +929,7 @@ class TransactionFormData {
     required this.description,
     required this.date,
     required this.isExcludedFromStatistics,
+    required this.isUnavoidable,
   });
 
   final TransactionEntry? entry;
@@ -923,6 +941,7 @@ class TransactionFormData {
   final String description;
   final DateTime date;
   final bool isExcludedFromStatistics;
+  final bool isUnavoidable;
 }
 
 class _TypeChip extends StatelessWidget {

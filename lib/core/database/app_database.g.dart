@@ -1239,6 +1239,21 @@ class $TransactionsTable extends Transactions
         ),
         defaultValue: const Constant(false),
       );
+  static const VerificationMeta _isUnavoidableMeta = const VerificationMeta(
+    'isUnavoidable',
+  );
+  @override
+  late final GeneratedColumn<bool> isUnavoidable = GeneratedColumn<bool>(
+    'is_unavoidable',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_unavoidable" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _linkedPaymentOccurrenceIdMeta =
       const VerificationMeta('linkedPaymentOccurrenceId');
   @override
@@ -1274,6 +1289,7 @@ class $TransactionsTable extends Transactions
     createdAt,
     updatedAt,
     isExcludedFromStatistics,
+    isUnavoidable,
     linkedPaymentOccurrenceId,
     transferGroupId,
   ];
@@ -1369,6 +1385,15 @@ class $TransactionsTable extends Transactions
         ),
       );
     }
+    if (data.containsKey('is_unavoidable')) {
+      context.handle(
+        _isUnavoidableMeta,
+        isUnavoidable.isAcceptableOrUnknown(
+          data['is_unavoidable']!,
+          _isUnavoidableMeta,
+        ),
+      );
+    }
     if (data.containsKey('linked_payment_occurrence_id')) {
       context.handle(
         _linkedPaymentOccurrenceIdMeta,
@@ -1440,6 +1465,10 @@ class $TransactionsTable extends Transactions
         DriftSqlType.bool,
         data['${effectivePrefix}is_excluded_from_statistics'],
       )!,
+      isUnavoidable: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_unavoidable'],
+      )!,
       linkedPaymentOccurrenceId: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}linked_payment_occurrence_id'],
@@ -1469,6 +1498,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool isExcludedFromStatistics;
+  final bool isUnavoidable;
   final int? linkedPaymentOccurrenceId;
   final int? transferGroupId;
   const Transaction({
@@ -1483,6 +1513,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     required this.createdAt,
     required this.updatedAt,
     required this.isExcludedFromStatistics,
+    required this.isUnavoidable,
     this.linkedPaymentOccurrenceId,
     this.transferGroupId,
   });
@@ -1504,6 +1535,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     map['is_excluded_from_statistics'] = Variable<bool>(
       isExcludedFromStatistics,
     );
+    map['is_unavoidable'] = Variable<bool>(isUnavoidable);
     if (!nullToAbsent || linkedPaymentOccurrenceId != null) {
       map['linked_payment_occurrence_id'] = Variable<int>(
         linkedPaymentOccurrenceId,
@@ -1530,6 +1562,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
       isExcludedFromStatistics: Value(isExcludedFromStatistics),
+      isUnavoidable: Value(isUnavoidable),
       linkedPaymentOccurrenceId:
           linkedPaymentOccurrenceId == null && nullToAbsent
           ? const Value.absent()
@@ -1559,6 +1592,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       isExcludedFromStatistics: serializer.fromJson<bool>(
         json['isExcludedFromStatistics'],
       ),
+      isUnavoidable: serializer.fromJson<bool>(json['isUnavoidable']),
       linkedPaymentOccurrenceId: serializer.fromJson<int?>(
         json['linkedPaymentOccurrenceId'],
       ),
@@ -1582,6 +1616,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       'isExcludedFromStatistics': serializer.toJson<bool>(
         isExcludedFromStatistics,
       ),
+      'isUnavoidable': serializer.toJson<bool>(isUnavoidable),
       'linkedPaymentOccurrenceId': serializer.toJson<int?>(
         linkedPaymentOccurrenceId,
       ),
@@ -1601,6 +1636,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isExcludedFromStatistics,
+    bool? isUnavoidable,
     Value<int?> linkedPaymentOccurrenceId = const Value.absent(),
     Value<int?> transferGroupId = const Value.absent(),
   }) => Transaction(
@@ -1616,6 +1652,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     updatedAt: updatedAt ?? this.updatedAt,
     isExcludedFromStatistics:
         isExcludedFromStatistics ?? this.isExcludedFromStatistics,
+    isUnavoidable: isUnavoidable ?? this.isUnavoidable,
     linkedPaymentOccurrenceId: linkedPaymentOccurrenceId.present
         ? linkedPaymentOccurrenceId.value
         : this.linkedPaymentOccurrenceId,
@@ -1644,6 +1681,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       isExcludedFromStatistics: data.isExcludedFromStatistics.present
           ? data.isExcludedFromStatistics.value
           : this.isExcludedFromStatistics,
+      isUnavoidable: data.isUnavoidable.present
+          ? data.isUnavoidable.value
+          : this.isUnavoidable,
       linkedPaymentOccurrenceId: data.linkedPaymentOccurrenceId.present
           ? data.linkedPaymentOccurrenceId.value
           : this.linkedPaymentOccurrenceId,
@@ -1667,6 +1707,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('isExcludedFromStatistics: $isExcludedFromStatistics, ')
+          ..write('isUnavoidable: $isUnavoidable, ')
           ..write('linkedPaymentOccurrenceId: $linkedPaymentOccurrenceId, ')
           ..write('transferGroupId: $transferGroupId')
           ..write(')'))
@@ -1686,6 +1727,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     createdAt,
     updatedAt,
     isExcludedFromStatistics,
+    isUnavoidable,
     linkedPaymentOccurrenceId,
     transferGroupId,
   );
@@ -1704,6 +1746,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.isExcludedFromStatistics == this.isExcludedFromStatistics &&
+          other.isUnavoidable == this.isUnavoidable &&
           other.linkedPaymentOccurrenceId == this.linkedPaymentOccurrenceId &&
           other.transferGroupId == this.transferGroupId);
 }
@@ -1720,6 +1763,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<bool> isExcludedFromStatistics;
+  final Value<bool> isUnavoidable;
   final Value<int?> linkedPaymentOccurrenceId;
   final Value<int?> transferGroupId;
   const TransactionsCompanion({
@@ -1734,6 +1778,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.isExcludedFromStatistics = const Value.absent(),
+    this.isUnavoidable = const Value.absent(),
     this.linkedPaymentOccurrenceId = const Value.absent(),
     this.transferGroupId = const Value.absent(),
   });
@@ -1749,6 +1794,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.isExcludedFromStatistics = const Value.absent(),
+    this.isUnavoidable = const Value.absent(),
     this.linkedPaymentOccurrenceId = const Value.absent(),
     this.transferGroupId = const Value.absent(),
   }) : accountId = Value(accountId),
@@ -1767,6 +1813,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<bool>? isExcludedFromStatistics,
+    Expression<bool>? isUnavoidable,
     Expression<int>? linkedPaymentOccurrenceId,
     Expression<int>? transferGroupId,
   }) {
@@ -1783,6 +1830,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       if (updatedAt != null) 'updated_at': updatedAt,
       if (isExcludedFromStatistics != null)
         'is_excluded_from_statistics': isExcludedFromStatistics,
+      if (isUnavoidable != null) 'is_unavoidable': isUnavoidable,
       if (linkedPaymentOccurrenceId != null)
         'linked_payment_occurrence_id': linkedPaymentOccurrenceId,
       if (transferGroupId != null) 'transfer_group_id': transferGroupId,
@@ -1801,6 +1849,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<bool>? isExcludedFromStatistics,
+    Value<bool>? isUnavoidable,
     Value<int?>? linkedPaymentOccurrenceId,
     Value<int?>? transferGroupId,
   }) {
@@ -1817,6 +1866,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       updatedAt: updatedAt ?? this.updatedAt,
       isExcludedFromStatistics:
           isExcludedFromStatistics ?? this.isExcludedFromStatistics,
+      isUnavoidable: isUnavoidable ?? this.isUnavoidable,
       linkedPaymentOccurrenceId:
           linkedPaymentOccurrenceId ?? this.linkedPaymentOccurrenceId,
       transferGroupId: transferGroupId ?? this.transferGroupId,
@@ -1861,6 +1911,9 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
         isExcludedFromStatistics.value,
       );
     }
+    if (isUnavoidable.present) {
+      map['is_unavoidable'] = Variable<bool>(isUnavoidable.value);
+    }
     if (linkedPaymentOccurrenceId.present) {
       map['linked_payment_occurrence_id'] = Variable<int>(
         linkedPaymentOccurrenceId.value,
@@ -1886,6 +1939,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('isExcludedFromStatistics: $isExcludedFromStatistics, ')
+          ..write('isUnavoidable: $isUnavoidable, ')
           ..write('linkedPaymentOccurrenceId: $linkedPaymentOccurrenceId, ')
           ..write('transferGroupId: $transferGroupId')
           ..write(')'))
@@ -5413,6 +5467,7 @@ typedef $$TransactionsTableCreateCompanionBuilder =
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<bool> isExcludedFromStatistics,
+      Value<bool> isUnavoidable,
       Value<int?> linkedPaymentOccurrenceId,
       Value<int?> transferGroupId,
     });
@@ -5429,6 +5484,7 @@ typedef $$TransactionsTableUpdateCompanionBuilder =
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<bool> isExcludedFromStatistics,
+      Value<bool> isUnavoidable,
       Value<int?> linkedPaymentOccurrenceId,
       Value<int?> transferGroupId,
     });
@@ -5523,6 +5579,11 @@ class $$TransactionsTableFilterComposer
 
   ColumnFilters<bool> get isExcludedFromStatistics => $composableBuilder(
     column: $table.isExcludedFromStatistics,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isUnavoidable => $composableBuilder(
+    column: $table.isUnavoidable,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5637,6 +5698,11 @@ class $$TransactionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isUnavoidable => $composableBuilder(
+    column: $table.isUnavoidable,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get linkedPaymentOccurrenceId => $composableBuilder(
     column: $table.linkedPaymentOccurrenceId,
     builder: (column) => ColumnOrderings(column),
@@ -5736,6 +5802,11 @@ class $$TransactionsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get isUnavoidable => $composableBuilder(
+    column: $table.isUnavoidable,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<int> get linkedPaymentOccurrenceId => $composableBuilder(
     column: $table.linkedPaymentOccurrenceId,
     builder: (column) => column,
@@ -5832,6 +5903,7 @@ class $$TransactionsTableTableManager
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<bool> isExcludedFromStatistics = const Value.absent(),
+                Value<bool> isUnavoidable = const Value.absent(),
                 Value<int?> linkedPaymentOccurrenceId = const Value.absent(),
                 Value<int?> transferGroupId = const Value.absent(),
               }) => TransactionsCompanion(
@@ -5846,6 +5918,7 @@ class $$TransactionsTableTableManager
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 isExcludedFromStatistics: isExcludedFromStatistics,
+                isUnavoidable: isUnavoidable,
                 linkedPaymentOccurrenceId: linkedPaymentOccurrenceId,
                 transferGroupId: transferGroupId,
               ),
@@ -5862,6 +5935,7 @@ class $$TransactionsTableTableManager
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<bool> isExcludedFromStatistics = const Value.absent(),
+                Value<bool> isUnavoidable = const Value.absent(),
                 Value<int?> linkedPaymentOccurrenceId = const Value.absent(),
                 Value<int?> transferGroupId = const Value.absent(),
               }) => TransactionsCompanion.insert(
@@ -5876,6 +5950,7 @@ class $$TransactionsTableTableManager
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 isExcludedFromStatistics: isExcludedFromStatistics,
+                isUnavoidable: isUnavoidable,
                 linkedPaymentOccurrenceId: linkedPaymentOccurrenceId,
                 transferGroupId: transferGroupId,
               ),

@@ -25,7 +25,7 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
   static const _backupDirectoryName = 'payday-backups';
   static const _backupPrefix = 'payday-before-import-';
   static const _retainedBackupCount = 6;
-  static const _schemaVersion = 7;
+  static const _schemaVersion = 8;
 
   static const _columnsByTable = <String, List<String>>{
     'accounts': [
@@ -62,6 +62,7 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
       'created_at',
       'updated_at',
       'is_excluded_from_statistics',
+      'is_unavoidable',
       'linked_payment_occurrence_id',
       'transfer_group_id',
     ],
@@ -224,7 +225,13 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
                 'INSERT INTO "$table" '
                 '(${columns.map((column) => '"$column"').join(', ')}) '
                 'VALUES (${List.filled(columns.length, '?').join(', ')})',
-                columns.map((column) => row[column]).toList(),
+                columns
+                    .map(
+                      (column) => column == 'is_unavoidable'
+                          ? row[column] ?? 0
+                          : row[column],
+                    )
+                    .toList(),
               );
             }
           }
@@ -418,6 +425,9 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
       if (version < 7) {
         if (entry.key == 'accounts') expectedColumns.remove('is_deposit');
         if (entry.key == 'categories') expectedColumns.remove('is_hidden');
+      }
+      if (version < 8 && entry.key == 'transactions') {
+        expectedColumns.remove('is_unavoidable');
       }
       if (columns.length != expectedColumns.length ||
           !columns.containsAll(expectedColumns)) {

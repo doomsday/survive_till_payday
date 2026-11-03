@@ -76,6 +76,7 @@ class FinanceSnapshot {
     required this.accumulatedBalance,
     required this.availableToday,
     required this.todayExpenses,
+    required this.dailyLimitBalance,
     required this.dayBalance,
   });
 
@@ -90,6 +91,7 @@ class FinanceSnapshot {
   final int? accumulatedBalance;
   final int? availableToday;
   final int? todayExpenses;
+  final int? dailyLimitBalance;
   final int? dayBalance;
 }
 
@@ -155,6 +157,7 @@ FinanceSnapshot calculateFinanceSnapshot({
   int elapsedDays = 0,
   int expensesBeforeToday = 0,
   int expensesToday = 0,
+  int unavoidableExpensesInPeriod = 0,
 }) {
   final normalizedToday = calendarDate(today);
   final normalizedPayday = switch (nextPayday) {
@@ -169,7 +172,10 @@ FinanceSnapshot calculateFinanceSnapshot({
   final hasPeriod = periodDays != null && periodDays > 0;
   final periodBudget = safeToSpend == null || !hasPeriod
       ? null
-      : safeToSpend + expensesBeforeToday + expensesToday;
+      : safeToSpend +
+            expensesBeforeToday +
+            expensesToday +
+            unavoidableExpensesInPeriod;
   final dailyLimit = safeToSpend == null || days == null || days <= 0
       ? null
       : hasPeriod
@@ -193,6 +199,7 @@ FinanceSnapshot calculateFinanceSnapshot({
     accumulatedBalance: accumulatedBalance,
     availableToday: availableToday,
     todayExpenses: dailyLimit == null ? null : expensesToday,
+    dailyLimitBalance: dailyLimit == null ? null : dailyLimit - expensesToday,
     dayBalance: availableToday == null ? null : availableToday - expensesToday,
   );
 }
@@ -531,6 +538,7 @@ class FinancialPlanningService {
     var elapsedDays = 0;
     var expensesBeforeToday = 0;
     var expensesToday = 0;
+    var unavoidableExpensesInPeriod = 0;
     if (nextPayday != null && previousPayday != null) {
       final periodStart = previousPayday.add(const Duration(days: 1));
       final totalDays = nextPayday.difference(periodStart).inDays;
@@ -556,7 +564,9 @@ class FinancialPlanningService {
                 ))
                 .get();
         for (final transaction in cycleTransactions) {
-          if (transaction.transactionDate.isBefore(today)) {
+          if (transaction.isUnavoidable) {
+            unavoidableExpensesInPeriod += transaction.amount;
+          } else if (transaction.transactionDate.isBefore(today)) {
             expensesBeforeToday += transaction.amount;
           } else {
             expensesToday += transaction.amount;
@@ -575,6 +585,7 @@ class FinancialPlanningService {
       elapsedDays: elapsedDays,
       expensesBeforeToday: expensesBeforeToday,
       expensesToday: expensesToday,
+      unavoidableExpensesInPeriod: unavoidableExpensesInPeriod,
     );
   }
 

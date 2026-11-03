@@ -68,8 +68,6 @@ class DashboardPage extends ConsumerWidget {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 12),
-            _DailyLimitCard(finance: snapshot),
-            const SizedBox(height: 12),
             _SafeToSpendCard(finance: snapshot),
             const SizedBox(height: 12),
             _FinanceSummary(finance: snapshot),
@@ -245,163 +243,38 @@ class _SafeToSpendCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final deficit = finance.safeToSpend != null && finance.safeToSpend! < 0;
+    final textStyle = Theme.of(context).textTheme.bodyLarge?.copyWith(
+      color: deficit ? scheme.onErrorContainer : scheme.onPrimaryContainer,
+      height: 1.4,
+    );
+    final showSavings =
+        finance.accumulatedBalance != null &&
+        finance.accumulatedBalance! > 0 &&
+        finance.availableToday != null;
+    final messageParts = [
+      finance.safeToSpend == null
+          ? 'Укажите дату зарплаты.'
+          : 'Можно потратить до зарплаты '
+                '${_money.format(finance.safeToSpend)}, '
+                'а сегодня '
+                '${finance.dailyLimitBalance == null ? '—' : _money.format(finance.dailyLimitBalance)}.',
+      if (finance.dailySafeToSpend != null)
+        'Норма трат за день на сегодня — '
+            '${_money.format(finance.dailySafeToSpend)}.',
+      if (finance.todayExpenses != null)
+        'По факту вы потратили ${_money.format(finance.todayExpenses)}.',
+      if (showSavings)
+        'В прошедшие дни после ЗП вы тратили меньше, поэтому '
+            'с учётом экономии сегодня можете потратить '
+            '${_money.format(finance.availableToday)}, '
+            'осталось '
+            '${finance.dayBalance == null ? '—' : _money.format(finance.dayBalance)}.',
+    ];
     return Card(
       color: deficit ? scheme.errorContainer : scheme.primaryContainer,
       child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Можно потратить до зарплаты',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              finance.safeToSpend == null
-                  ? 'Укажите дату зарплаты'
-                  : _money.format(finance.safeToSpend),
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: deficit
-                    ? scheme.onErrorContainer
-                    : scheme.onPrimaryContainer,
-              ),
-            ),
-            if (deficit)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text(
-                  'Дефицит бюджета до следующего поступления',
-                  style: TextStyle(color: scheme.onErrorContainer),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DailyLimitCard extends StatelessWidget {
-  const _DailyLimitCard({required this.finance});
-
-  final FinanceSnapshot finance;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final dayBalance = finance.dayBalance;
-    final expenses = finance.todayExpenses;
-    final balanceColor = dayBalance == null
-        ? scheme.onSurfaceVariant
-        : dayBalance < 0
-        ? scheme.error
-        : dayBalance > 0 && expenses != null && expenses > 0
-        ? Colors.green.shade700
-        : scheme.onSurfaceVariant;
-    final available = finance.availableToday;
-    final progress = available == null || expenses == null
-        ? 0.0
-        : available <= 0
-        ? (expenses > 0 ? 1.0 : 0.0)
-        : (expenses / available).clamp(0.0, 1.0).toDouble();
-
-    return Card(
-      child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Дневной лимит',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                      Text(
-                        finance.dailySafeToSpend == null
-                            ? '—'
-                            : _money.format(finance.dailySafeToSpend),
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        'Баланс дня',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                      Text(
-                        dayBalance == null
-                            ? '—'
-                            : dayBalance > 0
-                            ? '+${_money.format(dayBalance)}'
-                            : _money.format(dayBalance),
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          color: balanceColor,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Center(
-              child: Column(
-                children: [
-                  Text(
-                    available == null ? '—' : _money.format(available),
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    'Можно потратить сегодня',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            LinearProgressIndicator(
-              value: progress,
-              minHeight: 4,
-              color: balanceColor,
-              backgroundColor: scheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Расходы: ${expenses == null ? '—' : _money.format(expenses)}'
-              ' · Доступно: ${available == null ? '—' : _money.format(available)}',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
+        child: Text(messageParts.join(' '), style: textStyle),
       ),
     );
   }

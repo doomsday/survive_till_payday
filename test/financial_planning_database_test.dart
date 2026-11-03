@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:drift/drift.dart';
 import 'package:survive_till_payday/core/database/app_database.dart';
 import 'package:survive_till_payday/features/planning/domain/financial_planning_service.dart';
+import 'package:survive_till_payday/features/transactions/transactions_repository.dart';
 
 void main() {
   late AppDatabase database;
@@ -167,6 +168,25 @@ void main() {
       expect(snapshot.availableToday, 85404);
       expect(snapshot.todayExpenses, 2000);
       expect(snapshot.dayBalance, 83404);
+
+      await TransactionsRepository(database).addTransaction(
+        type: 'EXPENSE',
+        accountId: accountId,
+        amount: 10000,
+        date: today,
+        description: 'Бензин',
+        isUnavoidable: true,
+      );
+      final afterUnavoidableExpense = await planning.getSnapshot(now: today);
+      expect(
+        afterUnavoidableExpense.safeToSpend,
+        snapshot.safeToSpend! - 10000,
+      );
+      expect(
+        afterUnavoidableExpense.dailySafeToSpend,
+        snapshot.dailySafeToSpend,
+      );
+      expect(afterUnavoidableExpense.todayExpenses, 2000);
     },
   );
 

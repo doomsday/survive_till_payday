@@ -158,6 +158,9 @@ void main() {
         await databaseUnderTest.customStatement(
           'ALTER TABLE categories DROP COLUMN is_hidden',
         );
+        await databaseUnderTest.customStatement(
+          'ALTER TABLE transactions DROP COLUMN is_unavoidable',
+        );
         await databaseUnderTest.customStatement('PRAGMA user_version = 1');
         await databaseUnderTest.close();
 

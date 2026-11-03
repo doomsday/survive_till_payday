@@ -202,9 +202,13 @@ class TransactionsRepository {
     int? categoryId,
     String description = '',
     bool isExcludedFromStatistics = false,
+    bool isUnavoidable = false,
   }) async {
     if (type != 'INCOME' && type != 'EXPENSE') {
       throw ArgumentError.value(type, 'type');
+    }
+    if (isUnavoidable && type != 'EXPENSE') {
+      throw ArgumentError.value(isUnavoidable, 'isUnavoidable');
     }
     if (amount <= 0) throw ArgumentError.value(amount, 'amount');
     return _database.transaction(() async {
@@ -222,6 +226,7 @@ class TransactionsRepository {
               description: Value(description.trim()),
               transactionDate: calendarDate(date),
               isExcludedFromStatistics: Value(isExcludedFromStatistics),
+              isUnavoidable: Value(isUnavoidable),
             ),
           );
       await _changeBalance(account.id, type == 'INCOME' ? amount : -amount);
@@ -296,9 +301,13 @@ class TransactionsRepository {
     int? categoryId,
     required String description,
     required bool isExcludedFromStatistics,
+    bool isUnavoidable = false,
   }) async {
     if (type != 'INCOME' && type != 'EXPENSE') {
       throw ArgumentError.value(type, 'type');
+    }
+    if (isUnavoidable && type != 'EXPENSE') {
+      throw ArgumentError.value(isUnavoidable, 'isUnavoidable');
     }
     if (amount <= 0) throw ArgumentError.value(amount, 'amount');
     await _database.transaction(() async {
@@ -330,6 +339,7 @@ class TransactionsRepository {
           transactionDate: Value(calendarDate(date)),
           updatedAt: Value(DateTime.now()),
           isExcludedFromStatistics: Value(isExcludedFromStatistics),
+          isUnavoidable: Value(isUnavoidable),
         ),
       );
     });

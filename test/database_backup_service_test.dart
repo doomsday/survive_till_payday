@@ -31,6 +31,17 @@ void main() {
               isDeposit: const Value(true),
             ),
           );
+      await database
+          .into(database.transactions)
+          .insert(
+            TransactionsCompanion.insert(
+              accountId: accountId,
+              type: 'EXPENSE',
+              amount: 10000,
+              transactionDate: DateTime(2026, 11, 3),
+              isUnavoidable: const Value(true),
+            ),
+          );
       final changedRevision =
           (await database.select(database.databaseMetadata).getSingle())
               .revision;
@@ -49,6 +60,11 @@ void main() {
       expect(restored.name, 'Исходный счет');
       expect(restored.isNoWithdrawal, isTrue);
       expect(restored.isDeposit, isTrue);
+      expect(
+        (await database.select(database.transactions).getSingle())
+            .isUnavoidable,
+        isTrue,
+      );
       expect(await service.localBackups(), hasLength(1));
       expect(
         (await database.select(database.databaseMetadata).getSingle()).revision,
@@ -115,6 +131,18 @@ void main() {
       await database
           .into(database.accounts)
           .insert(AccountsCompanion.insert(name: 'Keep through migration'));
+      final accountId =
+          (await database.select(database.accounts).getSingle()).id;
+      await database
+          .into(database.transactions)
+          .insert(
+            TransactionsCompanion.insert(
+              accountId: accountId,
+              type: 'EXPENSE',
+              amount: 500,
+              transactionDate: DateTime(2026, 11, 3),
+            ),
+          );
       await database.close();
       database = null;
 
@@ -133,6 +161,9 @@ void main() {
         );
         oldDatabase.execute('ALTER TABLE accounts DROP COLUMN is_deposit');
         oldDatabase.execute('ALTER TABLE categories DROP COLUMN is_hidden');
+        oldDatabase.execute(
+          'ALTER TABLE transactions DROP COLUMN is_unavoidable',
+        );
         oldDatabase.execute('PRAGMA user_version = 4');
       } finally {
         oldDatabase.close();
@@ -147,6 +178,11 @@ void main() {
         (await database.select(database.accounts).getSingle()).isNoWithdrawal,
         isFalse,
       );
+      final migratedTransaction = await database
+          .select(database.transactions)
+          .getSingle();
+      expect(migratedTransaction.amount, 500);
+      expect(migratedTransaction.isUnavoidable, isFalse);
       final beforeInsert =
           (await database.select(database.databaseMetadata).getSingle())
               .revision;
@@ -222,6 +258,9 @@ void main() {
         );
         oldDatabase.execute('ALTER TABLE accounts DROP COLUMN is_deposit');
         oldDatabase.execute('ALTER TABLE categories DROP COLUMN is_hidden');
+        oldDatabase.execute(
+          'ALTER TABLE transactions DROP COLUMN is_unavoidable',
+        );
         oldDatabase.execute('PRAGMA user_version = 5');
       } finally {
         oldDatabase.close();
@@ -363,6 +402,9 @@ void main() {
         legacyDatabase.execute('DROP TABLE database_metadata');
         legacyDatabase.execute('ALTER TABLE accounts DROP COLUMN is_deposit');
         legacyDatabase.execute('ALTER TABLE categories DROP COLUMN is_hidden');
+        legacyDatabase.execute(
+          'ALTER TABLE transactions DROP COLUMN is_unavoidable',
+        );
         legacyDatabase.execute(
           "INSERT OR REPLACE INTO app_settings (key, value) "
           "VALUES ('backup_database_id', 'legacy-copy')",
