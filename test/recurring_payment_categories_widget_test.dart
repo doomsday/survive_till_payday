@@ -10,12 +10,14 @@ void main() {
   testWidgets('a recurring payment can be assigned an expense category', (
     tester,
   ) async {
-    late AppDatabase database;
+    final database = AppDatabase(NativeDatabase.memory());
+    final accountId = await database
+        .into(database.accounts)
+        .insert(AccountsCompanion.insert(name: 'Kaspi Gold'));
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           databaseProvider.overrideWith((ref) {
-            database = AppDatabase(NativeDatabase.memory());
             ref.onDispose(database.close);
             return database;
           }),
@@ -33,20 +35,53 @@ void main() {
 
     final categoryDropdown = find.byType(DropdownButtonFormField<int?>);
     await tester.ensureVisible(categoryDropdown);
-    await tester.tap(categoryDropdown);
+    final automobile = await (database.select(
+      database.categories,
+    )..where((row) => row.name.equals('Автомобиль'))).getSingle();
+    tester.widget<DropdownButtonFormField<int?>>(categoryDropdown).onChanged!(
+      automobile.id,
+    );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Автомобиль'));
+    final autoPaySwitch = find.byType(SwitchListTile).first;
+    tester.widget<SwitchListTile>(autoPaySwitch).onChanged!(true);
     await tester.pumpAndSettle();
+    expect(find.text('Счет карты'), findsOneWidget);
     await tester.tap(find.text('Сохранить'));
     await tester.pumpAndSettle();
 
     expect(find.text('Покупки'), findsOneWidget);
     final payment =
         (await database.select(database.recurringPayments).get()).single;
+    expect(payment.isAutoPay, isTrue);
+    expect(payment.accountId, accountId);
     final category = await (database.select(
       database.categories,
     )..where((row) => row.id.equals(payment.categoryId!))).getSingle();
     expect(category.name, 'Автомобиль');
+    final autoTransaction = await (database.select(
+      database.transactions,
+    )..where((row) => row.linkedPaymentOccurrenceId.isNotNull())).getSingle();
+    expect(autoTransaction.accountId, accountId);
+
+    await tester.tap(find.byTooltip('Действия с платежом'));
+    await tester.pumpAndSettle();
+    expect(find.text('Изменить платёж'), findsOneWidget);
+    expect(find.text('Изменить расписание'), findsNothing);
+    expect(find.text('Изменить платеж'), findsNothing);
+    await tester.tap(find.text('Изменить платёж'));
+    await tester.pumpAndSettle();
+    expect(find.text('Изменить платёж'), findsOneWidget);
+    expect(find.text('Периодичность'), findsOneWidget);
+    expect(find.text('Категория'), findsOneWidget);
+    expect(find.text('Автооплата'), findsWidgets);
+    expect(
+      find.text(
+        'Изменения применятся к будущим неоплаченным платежам. История оплат не изменится.',
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Отмена'));
+    await tester.pumpAndSettle();
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));

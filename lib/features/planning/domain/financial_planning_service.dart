@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart';
 
 import '../../../core/database/app_database.dart';
@@ -158,9 +160,12 @@ class FinancialPlanningService {
 
   Stream<List<PaymentOccurrence>> watchOccurrences() async* {
     await generateOccurrences();
-    yield* (db.select(
-      db.paymentOccurrences,
-    )..orderBy([(row) => OrderingTerm.asc(row.dueDate)])).watch();
+    yield* _watchWithPeriodicRefresh(
+      (db.select(
+        db.paymentOccurrences,
+      )..orderBy([(row) => OrderingTerm.asc(row.dueDate)])).watch(),
+      generateOccurrences,
+    );
   }
 
   Stream<List<RecurringPayment>> watchRecurringPayments() => (db.select(
@@ -177,18 +182,59 @@ class FinancialPlanningService {
 
   Stream<FinanceSnapshot> watchSnapshot() async* {
     await generateOccurrences();
-    yield* db
-        .customSelect(
-          'SELECT 1',
-          readsFrom: {
-            db.accounts,
-            db.paymentOccurrences,
-            db.incomeSchedules,
-            db.appSettings,
-          },
-        )
-        .watch()
-        .asyncMap((_) => getSnapshot());
+    yield* _watchWithPeriodicRefresh(
+      db
+          .customSelect(
+            'SELECT 1',
+            readsFrom: {
+              db.accounts,
+              db.paymentOccurrences,
+              db.incomeSchedules,
+              db.appSettings,
+            },
+          )
+          .watch()
+          .asyncMap((_) => getSnapshot()),
+      generateOccurrences,
+    );
+  }
+
+  Stream<T> _watchWithPeriodicRefresh<T>(
+    Stream<T> source,
+    Future<void> Function() refresh,
+  ) {
+    late final StreamController<T> controller;
+    StreamSubscription<T>? subscription;
+    Timer? timer;
+    var refreshing = false;
+
+    Future<void> tick() async {
+      if (refreshing) return;
+      refreshing = true;
+      try {
+        await refresh();
+      } catch (error, stackTrace) {
+        controller.addError(error, stackTrace);
+      } finally {
+        refreshing = false;
+      }
+    }
+
+    controller = StreamController<T>(
+      onListen: () {
+        subscription = source.listen(
+          controller.add,
+          onError: controller.addError,
+          onDone: controller.close,
+        );
+        timer = Timer.periodic(const Duration(minutes: 1), (_) => tick());
+      },
+      onCancel: () async {
+        timer?.cancel();
+        await subscription?.cancel();
+      },
+    );
+    return controller.stream;
   }
 
   Stream<DashboardData> watchDashboardData() async* {
@@ -468,10 +514,12 @@ class FinancialPlanningService {
     int? categoryId,
     int? accountId,
     int? paymentDay,
+    bool isAutoPay = false,
     String description = '',
   }) async {
     if (amount <= 0) throw ArgumentError.value(amount, 'amount');
     await _validateRecurringCategory(categoryId);
+    await _validateAutoPayAccount(accountId, isAutoPay);
     final start = calendarDate(startDate);
     await db
         .into(db.recurringPayments)
@@ -484,6 +532,7 @@ class FinancialPlanningService {
             frequency: frequency,
             paymentDay: Value(paymentDay),
             startDate: start,
+            isAutoPay: Value(isAutoPay),
             description: Value(description),
           ),
         );
@@ -499,6 +548,7 @@ class FinancialPlanningService {
     int? categoryId,
     int? accountId,
     int? paymentDay,
+    bool? isAutoPay,
     required bool isActive,
   }) async {
     if (amount <= 0) throw ArgumentError.value(amount, 'amount');
@@ -510,12 +560,14 @@ class FinancialPlanningService {
       if (existing == null) {
         throw StateError('Recurring payment $id not found.');
       }
+      final autoPayEnabled = isAutoPay ?? existing.isAutoPay;
       await _validateRecurringCategory(
         categoryId,
         allowArchivedCategoryId: categoryId == existing.categoryId
             ? existing.categoryId
             : null,
       );
+      await _validateAutoPayAccount(accountId, autoPayEnabled);
       await (db.update(
         db.recurringPayments,
       )..where((row) => row.id.equals(id))).write(
@@ -528,6 +580,7 @@ class FinancialPlanningService {
           paymentDay: Value(paymentDay),
           startDate: Value(calendarDate(startDate)),
           isActive: Value(isActive),
+          isAutoPay: Value(autoPayEnabled),
         ),
       );
       if (!isActive) {
@@ -563,6 +616,27 @@ class FinancialPlanningService {
         category.type != 'EXPENSE' ||
         (category.isArchived && category.id != allowArchivedCategoryId)) {
       throw ArgumentError.value(categoryId, 'categoryId');
+    }
+  }
+
+  Future<void> _validateAutoPayAccount(int? accountId, bool isAutoPay) async {
+    if (!isAutoPay) return;
+    if (accountId == null) {
+      throw ArgumentError.value(
+        accountId,
+        'accountId',
+        'Автооплата требует выбранного счета.',
+      );
+    }
+    final account = await (db.select(
+      db.accounts,
+    )..where((row) => row.id.equals(accountId))).getSingleOrNull();
+    if (account == null || !account.isActive) {
+      throw ArgumentError.value(
+        accountId,
+        'accountId',
+        'Для автооплаты выберите активный счет.',
+      );
     }
   }
 
@@ -638,6 +712,84 @@ class FinancialPlanningService {
           await (db.update(db.paymentOccurrences)
                 ..where((row) => row.id.equals(occurrence.id)))
               .write(PaymentOccurrencesCompanion(status: Value(status)));
+        }
+      }
+    });
+    await _processAutoPayments(today);
+  }
+
+  Future<void> _processAutoPayments(DateTime today) async {
+    await db.transaction(() async {
+      final balancesByAccountId = <int, int>{};
+      final schedules = await (db.select(
+        db.recurringPayments,
+      )..where((row) => row.isActive & row.isAutoPay)).get();
+      for (final schedule in schedules) {
+        final accountId = schedule.accountId;
+        if (accountId == null) {
+          throw StateError(
+            'Автооплата «${schedule.name}» не выполнена: не выбран счет.',
+          );
+        }
+        final account = await (db.select(
+          db.accounts,
+        )..where((row) => row.id.equals(accountId))).getSingleOrNull();
+        if (account == null || !account.isActive) {
+          throw StateError(
+            'Автооплата «${schedule.name}» не выполнена: счет не найден или неактивен.',
+          );
+        }
+        final dueOccurrences =
+            await (db.select(db.paymentOccurrences)..where(
+                  (row) =>
+                      row.recurringPaymentId.equals(schedule.id) &
+                      row.dueDate.isSmallerOrEqualValue(today) &
+                      row.status.isIn([
+                        'UPCOMING',
+                        'OVERDUE',
+                        'PARTIALLY_PAID',
+                      ]),
+                ))
+                .get();
+        for (final occurrence in dueOccurrences) {
+          final remaining = occurrence.expectedAmount - occurrence.paidAmount;
+          if (remaining <= 0) continue;
+          final transactionId = await db
+              .into(db.transactions)
+              .insert(
+                TransactionsCompanion.insert(
+                  accountId: account.id,
+                  categoryId: Value(schedule.categoryId),
+                  type: 'EXPENSE',
+                  amount: remaining,
+                  currency: Value(account.currency),
+                  description: Value(schedule.name),
+                  transactionDate: calendarDate(occurrence.dueDate),
+                  linkedPaymentOccurrenceId: Value(occurrence.id),
+                ),
+              );
+          await (db.update(
+            db.accounts,
+          )..where((row) => row.id.equals(account.id))).write(
+            AccountsCompanion(
+              currentBalance: Value(
+                (balancesByAccountId[account.id] ?? account.currentBalance) -
+                    remaining,
+              ),
+            ),
+          );
+          balancesByAccountId[account.id] =
+              (balancesByAccountId[account.id] ?? account.currentBalance) -
+              remaining;
+          await (db.update(
+            db.paymentOccurrences,
+          )..where((row) => row.id.equals(occurrence.id))).write(
+            PaymentOccurrencesCompanion(
+              paidAmount: Value(occurrence.expectedAmount),
+              status: const Value('PAID'),
+              linkedTransactionId: Value(transactionId),
+            ),
+          );
         }
       }
     });

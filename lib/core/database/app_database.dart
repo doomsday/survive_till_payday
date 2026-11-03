@@ -54,6 +54,7 @@ class RecurringPayments extends Table {
   DateTimeColumn get startDate => dateTime()();
   DateTimeColumn get endDate => dateTime().nullable()();
   BoolColumn get isActive => boolean().withDefault(const Constant(true))();
+  BoolColumn get isAutoPay => boolean().withDefault(const Constant(false))();
   TextColumn get description => text().withDefault(const Constant(''))();
 }
 
@@ -111,7 +112,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -121,6 +122,9 @@ class AppDatabase extends _$AppDatabase {
     },
     onUpgrade: (m, from, to) async {
       if (from < 2) await _seedDefaultCategories();
+      if (from < 3) {
+        await m.addColumn(recurringPayments, recurringPayments.isAutoPay);
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');

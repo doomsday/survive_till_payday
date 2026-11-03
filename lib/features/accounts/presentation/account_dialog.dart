@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/database/app_database.dart';
 import '../../planning/planning_providers.dart';
 import '../accounts_repository.dart';
 
@@ -17,41 +18,73 @@ Future<void> showCreateAccountDialog(
 ) async {
   await showDialog<void>(
     context: context,
-    builder: (_) => const _CreateAccountDialog(),
+    builder: (_) => const _AccountDialog(),
   );
+  ref.invalidate(allAccountsProvider);
+  ref.invalidate(financeSnapshotProvider);
 }
 
-class _CreateAccountDialog extends ConsumerStatefulWidget {
-  const _CreateAccountDialog();
+Future<void> showEditAccountDialog(
+  BuildContext context,
+  WidgetRef ref,
+  Account account,
+) async {
+  await showDialog<void>(
+    context: context,
+    builder: (_) => _AccountDialog(account: account),
+  );
+  ref.invalidate(allAccountsProvider);
+  ref.invalidate(financeSnapshotProvider);
+}
+
+class _AccountDialog extends ConsumerStatefulWidget {
+  const _AccountDialog({this.account});
+
+  final Account? account;
 
   @override
-  ConsumerState<_CreateAccountDialog> createState() =>
-      _CreateAccountDialogState();
+  ConsumerState<_AccountDialog> createState() => _AccountDialogState();
 }
 
-class _CreateAccountDialogState extends ConsumerState<_CreateAccountDialog> {
+class _AccountDialogState extends ConsumerState<_AccountDialog> {
   final _name = TextEditingController();
-  final _balance = TextEditingController(text: '0');
-  String _type = 'BANK';
+  late final TextEditingController _initialBalance;
+  late final TextEditingController _currentBalance;
+  late String _type;
   String? _error;
   bool _saving = false;
 
   @override
+  void initState() {
+    super.initState();
+    final account = widget.account;
+    _name.text = account?.name ?? '';
+    _type = account?.type ?? 'BANK';
+    _initialBalance = TextEditingController(
+      text: '${account?.initialBalance ?? 0}',
+    );
+    _currentBalance = TextEditingController(
+      text: '${account?.currentBalance ?? 0}',
+    );
+  }
+
+  @override
   void dispose() {
     _name.dispose();
-    _balance.dispose();
+    _initialBalance.dispose();
+    _currentBalance.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Новый счет'),
+    title: Text(widget.account == null ? 'Новый счет' : 'Изменить счет'),
     content: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         TextField(
           controller: _name,
-          autofocus: true,
+          autofocus: widget.account == null,
           textCapitalization: TextCapitalization.sentences,
           decoration: const InputDecoration(labelText: 'Название'),
         ),
@@ -69,13 +102,26 @@ class _CreateAccountDialogState extends ConsumerState<_CreateAccountDialog> {
         ),
         const SizedBox(height: 12),
         TextField(
-          controller: _balance,
+          controller: _initialBalance,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'Текущий остаток',
+          decoration: InputDecoration(
+            labelText: widget.account == null
+                ? 'Текущий остаток'
+                : 'Начальный остаток',
             suffixText: '₸',
           ),
         ),
+        if (widget.account != null) ...[
+          const SizedBox(height: 12),
+          TextField(
+            controller: _currentBalance,
+            keyboardType: const TextInputType.numberWithOptions(signed: true),
+            decoration: const InputDecoration(
+              labelText: 'Текущий остаток',
+              suffixText: '₸',
+            ),
+          ),
+        ],
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
@@ -98,15 +144,19 @@ class _CreateAccountDialogState extends ConsumerState<_CreateAccountDialog> {
                 dimension: 18,
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
-            : const Text('Создать'),
+            : Text(widget.account == null ? 'Создать' : 'Сохранить'),
       ),
     ],
   );
 
   Future<void> _save() async {
-    final amount = int.tryParse(_balance.text.trim());
-    if (_name.text.trim().isEmpty || amount == null || amount < 0) {
-      setState(() => _error = 'Укажите название и корректный остаток');
+    final initialBalance = int.tryParse(_initialBalance.text.trim());
+    final currentBalance = int.tryParse(_currentBalance.text.trim());
+    if (_name.text.trim().isEmpty ||
+        initialBalance == null ||
+        initialBalance < 0 ||
+        (widget.account != null && currentBalance == null)) {
+      setState(() => _error = 'Укажите название и корректные остатки');
       return;
     }
     setState(() {
@@ -114,9 +164,23 @@ class _CreateAccountDialogState extends ConsumerState<_CreateAccountDialog> {
       _error = null;
     });
     try {
-      await ref
-          .read(accountsRepositoryProvider)
-          .create(name: _name.text, type: _type, initialBalance: amount);
+      final repository = ref.read(accountsRepositoryProvider);
+      final account = widget.account;
+      if (account == null) {
+        await repository.create(
+          name: _name.text,
+          type: _type,
+          initialBalance: initialBalance,
+        );
+      } else {
+        await repository.update(
+          id: account.id,
+          name: _name.text,
+          type: _type,
+          initialBalance: initialBalance,
+          currentBalance: currentBalance!,
+        );
+      }
       ref.invalidate(allAccountsProvider);
       ref.invalidate(financeSnapshotProvider);
       if (mounted) Navigator.pop(context);
@@ -124,18 +188,27 @@ class _CreateAccountDialogState extends ConsumerState<_CreateAccountDialog> {
       if (mounted) {
         setState(() {
           _saving = false;
-          _error = 'Не удалось создать счет: $error';
+          _error = 'Не удалось сохранить счет: $error';
         });
       }
     }
   }
 }
 
-class AccountsSettingsSection extends ConsumerWidget {
+class AccountsSettingsSection extends ConsumerStatefulWidget {
   const AccountsSettingsSection({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AccountsSettingsSection> createState() =>
+      _AccountsSettingsSectionState();
+}
+
+class _AccountsSettingsSectionState
+    extends ConsumerState<AccountsSettingsSection> {
+  bool _showArchived = false;
+
+  @override
+  Widget build(BuildContext context) {
     final accounts = ref.watch(allAccountsProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -155,61 +228,127 @@ class AccountsSettingsSection extends ConsumerWidget {
             ),
           ],
         ),
+        CheckboxListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Показать архивные счета'),
+          value: _showArchived,
+          onChanged: (value) => setState(() => _showArchived = value ?? false),
+        ),
         accounts.when(
           loading: () => const Padding(
             padding: EdgeInsets.all(16),
             child: Center(child: CircularProgressIndicator()),
           ),
           error: (error, _) => Text('Не удалось загрузить счета: $error'),
-          data: (items) => items.isEmpty
-              ? const Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text('Добавьте банковский счет или наличные.'),
-                  ),
-                )
-              : Card(
-                  child: Column(
-                    children: [
-                      for (final account in items)
-                        ListTile(
-                          leading: Icon(
-                            account.type == 'CASH'
-                                ? Icons.account_balance_wallet_outlined
-                                : Icons.account_balance_outlined,
-                          ),
-                          title: Text(account.name),
-                          subtitle: Text(
-                            '${_money.format(account.currentBalance)} · ${account.currency}'
-                            '${account.isActive ? '' : ' · Неактивен'}',
-                          ),
-                          trailing: Switch(
-                            value: account.isActive,
-                            onChanged: (value) async {
-                              try {
-                                await ref
-                                    .read(accountsRepositoryProvider)
-                                    .setActive(account.id, value);
-                                ref.invalidate(financeSnapshotProvider);
-                              } catch (error) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Не удалось изменить счет: $error',
-                                      ),
-                                    ),
-                                  );
-                                }
-                              }
-                            },
-                          ),
-                        ),
-                    ],
+          data: (items) {
+            final visibleItems = items
+                .where((account) => _showArchived || account.isActive)
+                .toList();
+            if (visibleItems.isEmpty) {
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    items.isEmpty ? 'Добавьте банковский счет или наличные.' : 'Активных счетов нет. Включите показ архивных счетов, чтобы восстановить счет.',
                   ),
                 ),
+              );
+            }
+            return Card(
+              child: Column(
+                children: [
+                  for (final account in visibleItems)
+                    ListTile(
+                      leading: Icon(
+                        account.type == 'CASH'
+                            ? Icons.account_balance_wallet_outlined
+                            : Icons.account_balance_outlined,
+                      ),
+                      title: Text(account.name),
+                      subtitle: Text(
+                        '${_money.format(account.currentBalance)} · ${account.currency}'
+                        '${account.isActive ? '' : ' · В архиве'}',
+                      ),
+                      trailing: PopupMenuButton<String>(
+                        tooltip: 'Действия со счетом',
+                        onSelected: (action) =>
+                            _handleAccountAction(account, action),
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: 'edit',
+                            child: Text('Изменить'),
+                          ),
+                          PopupMenuItem(
+                            value: account.isActive ? 'archive' : 'restore',
+                            child: Text(
+                              account.isActive
+                                  ? 'Скрыть / удалить'
+                                  : 'Восстановить',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
         ),
       ],
     );
+  }
+
+  Future<void> _handleAccountAction(Account account, String action) async {
+    if (action == 'edit') {
+      await showEditAccountDialog(context, ref, account);
+      return;
+    }
+
+    final repository = ref.read(accountsRepositoryProvider);
+    try {
+      if (action == 'restore') {
+        await repository.setActive(account.id, true);
+        ref.invalidate(allAccountsProvider);
+        ref.invalidate(financeSnapshotProvider);
+        return;
+      }
+
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Скрыть или удалить счет?'),
+          content: const Text(
+            'Если к счету привязаны операции или регулярные платежи, он будет помещен в архив. Если привязок нет, счет будет удален без возможности восстановления.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Отмена'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Продолжить'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+      final archived = await repository.archiveOrDelete(account.id);
+      ref.invalidate(allAccountsProvider);
+      ref.invalidate(financeSnapshotProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(archived ? 'Счет помещен в архив' : 'Счет удален'),
+          ),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Не удалось изменить счет: $error')),
+        );
+      }
+    }
   }
 }

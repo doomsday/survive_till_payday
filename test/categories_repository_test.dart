@@ -126,6 +126,19 @@ void main() {
                 type: 'EXPENSE',
               ),
             );
+        await databaseUnderTest
+            .into(databaseUnderTest.recurringPayments)
+            .insert(
+              RecurringPaymentsCompanion.insert(
+                name: 'Платеж из старой версии',
+                amount: 1000,
+                frequency: 'MONTHLY',
+                startDate: DateTime(2026, 11, 3),
+              ),
+            );
+        await databaseUnderTest.customStatement(
+          'ALTER TABLE recurring_payments DROP COLUMN is_auto_pay',
+        );
         await databaseUnderTest.customStatement('PRAGMA user_version = 1');
         await databaseUnderTest.close();
 
@@ -142,6 +155,12 @@ void main() {
           categories.map((category) => category.name),
           contains('Зарплата'),
         );
+        final migratedPayment =
+            (await databaseUnderTest
+                    .select(databaseUnderTest.recurringPayments)
+                    .get())
+                .single;
+        expect(migratedPayment.isAutoPay, isFalse);
       } finally {
         await databaseUnderTest?.close();
         await directory.delete(recursive: true);

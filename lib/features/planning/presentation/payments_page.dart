@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../accounts/presentation/account_dialog.dart';
+import '../../accounts/accounts_repository.dart';
 import '../../../core/database/app_database.dart';
 import '../../categories/categories_repository.dart';
 import '../domain/financial_planning_service.dart';
@@ -68,6 +69,7 @@ class PaymentsPage extends ConsumerWidget {
                               )
                               .firstOrNull
                               ?.name,
+                          isAutoPay: item.isAutoPay,
                           nextOccurrence: occurrences.value
                               ?.where(
                                 (occurrence) =>
@@ -80,8 +82,6 @@ class PaymentsPage extends ConsumerWidget {
                               _createSchedule(context, ref, false, item),
                           onPay: (occurrence) =>
                               _payOccurrence(context, ref, occurrence),
-                          onEditOccurrence: (occurrence) =>
-                              _editOccurrence(context, ref, occurrence),
                           onCancelOccurrence: (occurrence) =>
                               _cancelOccurrence(context, ref, occurrence),
                         ),
@@ -156,19 +156,19 @@ class _RecurringPaymentTile extends StatelessWidget {
   const _RecurringPaymentTile({
     required this.payment,
     required this.categoryName,
+    required this.isAutoPay,
     required this.nextOccurrence,
     required this.onEditSchedule,
     required this.onPay,
-    required this.onEditOccurrence,
     required this.onCancelOccurrence,
   });
 
   final RecurringPayment payment;
   final String? categoryName;
+  final bool isAutoPay;
   final PaymentOccurrence? nextOccurrence;
   final VoidCallback onEditSchedule;
   final ValueChanged<PaymentOccurrence> onPay;
-  final ValueChanged<PaymentOccurrence> onEditOccurrence;
   final ValueChanged<PaymentOccurrence> onCancelOccurrence;
 
   @override
@@ -195,6 +195,14 @@ class _RecurringPaymentTile extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
+              if (isAutoPay) ...[
+                const SizedBox(height: 2),
+                Text(
+                  'Автооплата',
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: Theme.of(context).colorScheme.primary),
+                ),
+              ],
               const SizedBox(height: 2),
               Text(
                 dueDate == null
@@ -209,23 +217,15 @@ class _RecurringPaymentTile extends StatelessWidget {
         trailing: PopupMenuButton<String>(
           tooltip: 'Действия с платежом',
           onSelected: (action) {
-            if (action == 'schedule') onEditSchedule();
+            if (action == 'edit') onEditSchedule();
             if (occurrence == null) return;
             if (action == 'pay') onPay(occurrence);
-            if (action == 'edit') onEditOccurrence(occurrence);
             if (action == 'cancel') onCancelOccurrence(occurrence);
           },
           itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: 'schedule',
-              child: Text('Изменить расписание'),
-            ),
+            const PopupMenuItem(value: 'edit', child: Text('Изменить платёж')),
             if (occurrence != null) ...[
               const PopupMenuItem(value: 'pay', child: Text('Оплатить')),
-              const PopupMenuItem(
-                value: 'edit',
-                child: Text('Изменить платеж'),
-              ),
               const PopupMenuItem(
                 value: 'cancel',
                 child: Text('Отменить платеж'),
@@ -330,75 +330,6 @@ Future<Account?> _getAccountForAction(
   }
   if (accounts.isEmpty || !context.mounted) return null;
   return _chooseAccount(context, accounts);
-}
-
-Future<void> _editOccurrence(
-  BuildContext context,
-  WidgetRef ref,
-  PaymentOccurrence occurrence,
-) async {
-  final amount = TextEditingController(text: '${occurrence.expectedAmount}');
-  var dueDate = occurrence.dueDate;
-  final changed = await showDialog<bool>(
-    context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setState) => AlertDialog(
-        title: const Text('Изменить обязательство'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: amount,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Сумма, ₸'),
-            ),
-            TextButton.icon(
-              onPressed: () async {
-                final selected = await showDatePicker(
-                  context: context,
-                  initialDate: dueDate,
-                  firstDate: DateTime(2000),
-                  lastDate: DateTime(2100),
-                );
-                if (selected != null) setState(() => dueDate = selected);
-              },
-              icon: const Icon(Icons.calendar_today_outlined),
-              label: Text(_shortDate.format(dueDate)),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Отмена'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Сохранить'),
-          ),
-        ],
-      ),
-    ),
-  );
-  final parsedAmount = int.tryParse(amount.text.trim());
-  amount.dispose();
-  if (changed == true && parsedAmount != null && parsedAmount > 0) {
-    try {
-      await ref
-          .read(financialPlanningServiceProvider)
-          .updateOccurrence(
-            id: occurrence.id,
-            amount: parsedAmount,
-            dueDate: dueDate,
-          );
-      ref.invalidate(financeSnapshotProvider);
-      ref.invalidate(paymentOccurrencesProvider);
-    } catch (error) {
-      if (context.mounted) _showMessage(context, 'Не удалось изменить: $error');
-    }
-  } else if (changed == true && context.mounted) {
-    _showMessage(context, 'Введите корректную сумму больше нуля');
-  }
 }
 
 Future<void> _cancelOccurrence(
@@ -563,6 +494,8 @@ class _RecurringFormState extends ConsumerState<_RecurringForm> {
   late DateTime _startDate;
   late PlanningFrequency _frequency;
   int? _categoryId;
+  int? _accountId;
+  bool _isAutoPay = false;
   bool _isActive = true;
   String? _error;
 
@@ -575,6 +508,8 @@ class _RecurringFormState extends ConsumerState<_RecurringForm> {
     _startDate = item?.startDate ?? DateTime.now();
     _frequency = parseFrequency(item?.frequency ?? 'MONTHLY');
     _categoryId = item?.categoryId;
+    _accountId = item?.accountId;
+    _isAutoPay = item?.isAutoPay ?? false;
     _isActive = item?.isActive ?? true;
   }
 
@@ -588,14 +523,21 @@ class _RecurringFormState extends ConsumerState<_RecurringForm> {
   @override
   Widget build(BuildContext context) {
     final categories = ref.watch(categoriesProvider);
+    final accounts = ref.watch(allAccountsProvider);
     return AlertDialog(
-      title: Text(
-        widget.initial == null ? 'Новый платеж' : 'Расписание платежа',
-      ),
+      title: Text(widget.initial == null ? 'Новый платёж' : 'Изменить платёж'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (widget.initial != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  'Изменения применятся к будущим неоплаченным платежам. История оплат не изменится.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
             TextField(
               controller: _name,
               decoration: const InputDecoration(labelText: 'Название'),
@@ -641,6 +583,67 @@ class _RecurringFormState extends ConsumerState<_RecurringForm> {
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
             ),
+            const SizedBox(height: 12),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Автооплата'),
+              subtitle: const Text(
+                'При наступлении даты платеж будет автоматически записан как оплаченный.',
+              ),
+              value: _isAutoPay,
+              onChanged: (value) {
+                setState(() {
+                  _isAutoPay = value;
+                  if (value && _accountId == null) {
+                    _accountId = accounts.value
+                        ?.where((account) => account.isActive)
+                        .firstOrNull
+                        ?.id;
+                  }
+                });
+              },
+            ),
+            if (_isAutoPay) ...[
+              const SizedBox(height: 8),
+              accounts.when(
+                data: (items) {
+                  final selectableAccounts = items
+                      .where(
+                        (account) =>
+                            account.isActive || account.id == _accountId,
+                      )
+                      .toList();
+                  return DropdownButtonFormField<int?>(
+                    initialValue: _accountId,
+                    decoration: const InputDecoration(labelText: 'Счет карты'),
+                    items: [
+                      const DropdownMenuItem<int?>(
+                        value: null,
+                        child: Text('Выберите счет'),
+                      ),
+                      for (final account in selectableAccounts)
+                        DropdownMenuItem<int?>(
+                          value: account.id,
+                          child: Text(
+                            '${account.name}${account.isActive ? '' : ' · Неактивен'}',
+                          ),
+                        ),
+                    ],
+                    onChanged: (value) => setState(() => _accountId = value),
+                  );
+                },
+                loading: () => const LinearProgressIndicator(),
+                error: (error, _) => Text(
+                  'Не удалось загрузить счета: $error',
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Автооплата создает локальную запись расхода и уменьшает остаток счета. Списание через банк не выполняется.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
             const SizedBox(height: 12),
             DropdownButtonFormField<PlanningFrequency>(
               initialValue: _frequency,
@@ -701,6 +704,10 @@ class _RecurringFormState extends ConsumerState<_RecurringForm> {
       setState(() => _error = 'Укажите название и сумму больше нуля');
       return;
     }
+    if (_isAutoPay && _accountId == null) {
+      setState(() => _error = 'Для автооплаты выберите счет');
+      return;
+    }
     final service = ProviderScope.containerOf(context)
         .read(financialPlanningServiceProvider);
     try {
@@ -719,6 +726,8 @@ class _RecurringFormState extends ConsumerState<_RecurringForm> {
           frequency: frequency,
           startDate: _startDate,
           categoryId: _categoryId,
+          accountId: _accountId,
+          isAutoPay: _isAutoPay,
         );
       } else {
         await service.updateRecurringPayment(
@@ -729,7 +738,8 @@ class _RecurringFormState extends ConsumerState<_RecurringForm> {
           startDate: _startDate,
           paymentDay: existing.paymentDay,
           categoryId: _categoryId,
-          accountId: existing.accountId,
+          accountId: _accountId,
+          isAutoPay: _isAutoPay,
           isActive: _isActive,
         );
       }

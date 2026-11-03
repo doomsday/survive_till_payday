@@ -1870,6 +1870,21 @@ class $RecurringPaymentsTable extends RecurringPayments
     ),
     defaultValue: const Constant(true),
   );
+  static const VerificationMeta _isAutoPayMeta = const VerificationMeta(
+    'isAutoPay',
+  );
+  @override
+  late final GeneratedColumn<bool> isAutoPay = GeneratedColumn<bool>(
+    'is_auto_pay',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_auto_pay" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _descriptionMeta = const VerificationMeta(
     'description',
   );
@@ -1894,6 +1909,7 @@ class $RecurringPaymentsTable extends RecurringPayments
     startDate,
     endDate,
     isActive,
+    isAutoPay,
     description,
   ];
   @override
@@ -1973,6 +1989,12 @@ class $RecurringPaymentsTable extends RecurringPayments
         isActive.isAcceptableOrUnknown(data['is_active']!, _isActiveMeta),
       );
     }
+    if (data.containsKey('is_auto_pay')) {
+      context.handle(
+        _isAutoPayMeta,
+        isAutoPay.isAcceptableOrUnknown(data['is_auto_pay']!, _isAutoPayMeta),
+      );
+    }
     if (data.containsKey('description')) {
       context.handle(
         _descriptionMeta,
@@ -2031,6 +2053,10 @@ class $RecurringPaymentsTable extends RecurringPayments
         DriftSqlType.bool,
         data['${effectivePrefix}is_active'],
       )!,
+      isAutoPay: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_auto_pay'],
+      )!,
       description: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}description'],
@@ -2056,6 +2082,7 @@ class RecurringPayment extends DataClass
   final DateTime startDate;
   final DateTime? endDate;
   final bool isActive;
+  final bool isAutoPay;
   final String description;
   const RecurringPayment({
     required this.id,
@@ -2068,6 +2095,7 @@ class RecurringPayment extends DataClass
     required this.startDate,
     this.endDate,
     required this.isActive,
+    required this.isAutoPay,
     required this.description,
   });
   @override
@@ -2091,6 +2119,7 @@ class RecurringPayment extends DataClass
       map['end_date'] = Variable<DateTime>(endDate);
     }
     map['is_active'] = Variable<bool>(isActive);
+    map['is_auto_pay'] = Variable<bool>(isAutoPay);
     map['description'] = Variable<String>(description);
     return map;
   }
@@ -2115,6 +2144,7 @@ class RecurringPayment extends DataClass
           ? const Value.absent()
           : Value(endDate),
       isActive: Value(isActive),
+      isAutoPay: Value(isAutoPay),
       description: Value(description),
     );
   }
@@ -2135,6 +2165,7 @@ class RecurringPayment extends DataClass
       startDate: serializer.fromJson<DateTime>(json['startDate']),
       endDate: serializer.fromJson<DateTime?>(json['endDate']),
       isActive: serializer.fromJson<bool>(json['isActive']),
+      isAutoPay: serializer.fromJson<bool>(json['isAutoPay']),
       description: serializer.fromJson<String>(json['description']),
     );
   }
@@ -2152,6 +2183,7 @@ class RecurringPayment extends DataClass
       'startDate': serializer.toJson<DateTime>(startDate),
       'endDate': serializer.toJson<DateTime?>(endDate),
       'isActive': serializer.toJson<bool>(isActive),
+      'isAutoPay': serializer.toJson<bool>(isAutoPay),
       'description': serializer.toJson<String>(description),
     };
   }
@@ -2167,6 +2199,7 @@ class RecurringPayment extends DataClass
     DateTime? startDate,
     Value<DateTime?> endDate = const Value.absent(),
     bool? isActive,
+    bool? isAutoPay,
     String? description,
   }) => RecurringPayment(
     id: id ?? this.id,
@@ -2179,6 +2212,7 @@ class RecurringPayment extends DataClass
     startDate: startDate ?? this.startDate,
     endDate: endDate.present ? endDate.value : this.endDate,
     isActive: isActive ?? this.isActive,
+    isAutoPay: isAutoPay ?? this.isAutoPay,
     description: description ?? this.description,
   );
   RecurringPayment copyWithCompanion(RecurringPaymentsCompanion data) {
@@ -2197,6 +2231,7 @@ class RecurringPayment extends DataClass
       startDate: data.startDate.present ? data.startDate.value : this.startDate,
       endDate: data.endDate.present ? data.endDate.value : this.endDate,
       isActive: data.isActive.present ? data.isActive.value : this.isActive,
+      isAutoPay: data.isAutoPay.present ? data.isAutoPay.value : this.isAutoPay,
       description: data.description.present
           ? data.description.value
           : this.description,
@@ -2216,6 +2251,7 @@ class RecurringPayment extends DataClass
           ..write('startDate: $startDate, ')
           ..write('endDate: $endDate, ')
           ..write('isActive: $isActive, ')
+          ..write('isAutoPay: $isAutoPay, ')
           ..write('description: $description')
           ..write(')'))
         .toString();
@@ -2233,6 +2269,7 @@ class RecurringPayment extends DataClass
     startDate,
     endDate,
     isActive,
+    isAutoPay,
     description,
   );
   @override
@@ -2249,6 +2286,7 @@ class RecurringPayment extends DataClass
           other.startDate == this.startDate &&
           other.endDate == this.endDate &&
           other.isActive == this.isActive &&
+          other.isAutoPay == this.isAutoPay &&
           other.description == this.description);
 }
 
@@ -2263,6 +2301,7 @@ class RecurringPaymentsCompanion extends UpdateCompanion<RecurringPayment> {
   final Value<DateTime> startDate;
   final Value<DateTime?> endDate;
   final Value<bool> isActive;
+  final Value<bool> isAutoPay;
   final Value<String> description;
   const RecurringPaymentsCompanion({
     this.id = const Value.absent(),
@@ -2275,6 +2314,7 @@ class RecurringPaymentsCompanion extends UpdateCompanion<RecurringPayment> {
     this.startDate = const Value.absent(),
     this.endDate = const Value.absent(),
     this.isActive = const Value.absent(),
+    this.isAutoPay = const Value.absent(),
     this.description = const Value.absent(),
   });
   RecurringPaymentsCompanion.insert({
@@ -2288,6 +2328,7 @@ class RecurringPaymentsCompanion extends UpdateCompanion<RecurringPayment> {
     required DateTime startDate,
     this.endDate = const Value.absent(),
     this.isActive = const Value.absent(),
+    this.isAutoPay = const Value.absent(),
     this.description = const Value.absent(),
   }) : name = Value(name),
        amount = Value(amount),
@@ -2304,6 +2345,7 @@ class RecurringPaymentsCompanion extends UpdateCompanion<RecurringPayment> {
     Expression<DateTime>? startDate,
     Expression<DateTime>? endDate,
     Expression<bool>? isActive,
+    Expression<bool>? isAutoPay,
     Expression<String>? description,
   }) {
     return RawValuesInsertable({
@@ -2317,6 +2359,7 @@ class RecurringPaymentsCompanion extends UpdateCompanion<RecurringPayment> {
       if (startDate != null) 'start_date': startDate,
       if (endDate != null) 'end_date': endDate,
       if (isActive != null) 'is_active': isActive,
+      if (isAutoPay != null) 'is_auto_pay': isAutoPay,
       if (description != null) 'description': description,
     });
   }
@@ -2332,6 +2375,7 @@ class RecurringPaymentsCompanion extends UpdateCompanion<RecurringPayment> {
     Value<DateTime>? startDate,
     Value<DateTime?>? endDate,
     Value<bool>? isActive,
+    Value<bool>? isAutoPay,
     Value<String>? description,
   }) {
     return RecurringPaymentsCompanion(
@@ -2345,6 +2389,7 @@ class RecurringPaymentsCompanion extends UpdateCompanion<RecurringPayment> {
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
       isActive: isActive ?? this.isActive,
+      isAutoPay: isAutoPay ?? this.isAutoPay,
       description: description ?? this.description,
     );
   }
@@ -2382,6 +2427,9 @@ class RecurringPaymentsCompanion extends UpdateCompanion<RecurringPayment> {
     if (isActive.present) {
       map['is_active'] = Variable<bool>(isActive.value);
     }
+    if (isAutoPay.present) {
+      map['is_auto_pay'] = Variable<bool>(isAutoPay.value);
+    }
     if (description.present) {
       map['description'] = Variable<String>(description.value);
     }
@@ -2401,6 +2449,7 @@ class RecurringPaymentsCompanion extends UpdateCompanion<RecurringPayment> {
           ..write('startDate: $startDate, ')
           ..write('endDate: $endDate, ')
           ..write('isActive: $isActive, ')
+          ..write('isAutoPay: $isAutoPay, ')
           ..write('description: $description')
           ..write(')'))
         .toString();
@@ -5055,6 +5104,7 @@ typedef $$RecurringPaymentsTableCreateCompanionBuilder =
       required DateTime startDate,
       Value<DateTime?> endDate,
       Value<bool> isActive,
+      Value<bool> isAutoPay,
       Value<String> description,
     });
 typedef $$RecurringPaymentsTableUpdateCompanionBuilder =
@@ -5069,6 +5119,7 @@ typedef $$RecurringPaymentsTableUpdateCompanionBuilder =
       Value<DateTime> startDate,
       Value<DateTime?> endDate,
       Value<bool> isActive,
+      Value<bool> isAutoPay,
       Value<String> description,
     });
 
@@ -5191,6 +5242,11 @@ class $$RecurringPaymentsTableFilterComposer
 
   ColumnFilters<bool> get isActive => $composableBuilder(
     column: $table.isActive,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isAutoPay => $composableBuilder(
+    column: $table.isAutoPay,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5320,6 +5376,11 @@ class $$RecurringPaymentsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isAutoPay => $composableBuilder(
+    column: $table.isAutoPay,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get description => $composableBuilder(
     column: $table.description,
     builder: (column) => ColumnOrderings(column),
@@ -5406,6 +5467,9 @@ class $$RecurringPaymentsTableAnnotationComposer
 
   GeneratedColumn<bool> get isActive =>
       $composableBuilder(column: $table.isActive, builder: (column) => column);
+
+  GeneratedColumn<bool> get isAutoPay =>
+      $composableBuilder(column: $table.isAutoPay, builder: (column) => column);
 
   GeneratedColumn<String> get description => $composableBuilder(
     column: $table.description,
@@ -5532,6 +5596,7 @@ class $$RecurringPaymentsTableTableManager
                 Value<DateTime> startDate = const Value.absent(),
                 Value<DateTime?> endDate = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
+                Value<bool> isAutoPay = const Value.absent(),
                 Value<String> description = const Value.absent(),
               }) => RecurringPaymentsCompanion(
                 id: id,
@@ -5544,6 +5609,7 @@ class $$RecurringPaymentsTableTableManager
                 startDate: startDate,
                 endDate: endDate,
                 isActive: isActive,
+                isAutoPay: isAutoPay,
                 description: description,
               ),
           createCompanionCallback:
@@ -5558,6 +5624,7 @@ class $$RecurringPaymentsTableTableManager
                 required DateTime startDate,
                 Value<DateTime?> endDate = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
+                Value<bool> isAutoPay = const Value.absent(),
                 Value<String> description = const Value.absent(),
               }) => RecurringPaymentsCompanion.insert(
                 id: id,
@@ -5570,6 +5637,7 @@ class $$RecurringPaymentsTableTableManager
                 startDate: startDate,
                 endDate: endDate,
                 isActive: isActive,
+                isAutoPay: isAutoPay,
                 description: description,
               ),
           withReferenceMapper: (p0) => p0

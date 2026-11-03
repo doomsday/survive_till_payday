@@ -170,6 +170,113 @@ void main() {
     },
   );
 
+  test(
+    'auto-pay closes due occurrences and records a single linked expense',
+    () async {
+      final accountId = await addAccount(balance: 46000);
+      final category = (await database.select(database.categories).get())
+          .firstWhere((item) => item.name == 'Коммунальные услуги');
+      final scheduleId = await database
+          .into(database.recurringPayments)
+          .insert(
+            RecurringPaymentsCompanion.insert(
+              name: 'Коммуналка',
+              amount: 12000,
+              categoryId: Value(category.id),
+              accountId: Value(accountId),
+              frequency: 'MONTHLY',
+              startDate: today,
+              isAutoPay: const Value(true),
+            ),
+          );
+      final occurrenceId = await database
+          .into(database.paymentOccurrences)
+          .insert(
+            PaymentOccurrencesCompanion.insert(
+              recurringPaymentId: scheduleId,
+              expectedAmount: 14000,
+              paidAmount: const Value(4000),
+              dueDate: DateTime(2026, 11, 2),
+              status: const Value('PARTIALLY_PAID'),
+            ),
+          );
+      await database
+          .into(database.recurringPayments)
+          .insert(
+            RecurringPaymentsCompanion.insert(
+              name: 'Интернет',
+              amount: 5000,
+              accountId: Value(accountId),
+              frequency: 'MONTHLY',
+              startDate: today,
+              isAutoPay: const Value(true),
+            ),
+          );
+
+      await planning.generateOccurrences(now: today);
+      await planning.generateOccurrences(now: today);
+
+      final occurrence = await (database.select(
+        database.paymentOccurrences,
+      )..where((row) => row.id.equals(occurrenceId))).getSingle();
+      final transactions =
+          await (database.select(database.transactions)..where(
+                (row) => row.linkedPaymentOccurrenceId.equals(occurrenceId),
+              ))
+              .get();
+      final allAutoTransactions = await (database.select(
+        database.transactions,
+      )..where((row) => row.linkedPaymentOccurrenceId.isNotNull())).get();
+      final account = await (database.select(
+        database.accounts,
+      )..where((row) => row.id.equals(accountId))).getSingle();
+
+      expect(occurrence.status, 'PAID');
+      expect(occurrence.paidAmount, 14000);
+      expect(allAutoTransactions, hasLength(2));
+      expect(transactions.single.amount, 10000);
+      expect(transactions.single.categoryId, category.id);
+      expect(transactions.single.transactionDate, DateTime(2026, 11, 2));
+      expect(account.currentBalance, 31000);
+    },
+  );
+
+  test('auto-pay requires an active account', () async {
+    final category = (await database.select(database.categories).get()).first;
+    await expectLater(
+      planning.createRecurringPayment(
+        name: 'Нет счета',
+        amount: 1000,
+        frequency: 'MONTHLY',
+        startDate: today,
+        categoryId: category.id,
+        isAutoPay: true,
+      ),
+      throwsArgumentError,
+    );
+
+    final accountId = await database
+        .into(database.accounts)
+        .insert(
+          AccountsCompanion.insert(
+            name: 'Неактивный',
+            isActive: const Value(false),
+          ),
+        );
+    await expectLater(
+      planning.createRecurringPayment(
+        name: 'Неактивный счет',
+        amount: 1000,
+        frequency: 'MONTHLY',
+        startDate: today,
+        categoryId: category.id,
+        accountId: accountId,
+        isAutoPay: true,
+      ),
+      throwsArgumentError,
+    );
+  });
+
   test('corrects overdue status when an obligation is in the future', () async {
     final recurringPaymentId = await database
         .into(database.recurringPayments)

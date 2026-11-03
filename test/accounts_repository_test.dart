@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:survive_till_payday/core/database/app_database.dart';
@@ -45,5 +46,77 @@ void main() {
     await repository.setActive(id, false);
 
     expect((await repository.getById(id))!.isActive, isFalse);
+  });
+
+  test('updates account details and both balances', () async {
+    final id = await repository.create(name: 'Kaspi', initialBalance: 100000);
+
+    await repository.update(
+      id: id,
+      name: 'Kaspi Gold',
+      type: 'CASH',
+      initialBalance: 80000,
+      currentBalance: 72000,
+    );
+
+    final account = (await repository.getById(id))!;
+    expect(account.name, 'Kaspi Gold');
+    expect(account.type, 'CASH');
+    expect(account.initialBalance, 80000);
+    expect(account.currentBalance, 72000);
+  });
+
+  test(
+    'archives referenced accounts and permanently deletes unused accounts',
+    () async {
+      final referencedId = await repository.create(
+        name: 'Kaspi',
+        initialBalance: 10000,
+      );
+      final unusedId = await repository.create(
+        name: 'Наличные',
+        initialBalance: 5000,
+      );
+      await database
+          .into(database.transactions)
+          .insert(
+            TransactionsCompanion.insert(
+              accountId: referencedId,
+              type: 'EXPENSE',
+              amount: 1000,
+              transactionDate: DateTime(2026, 11, 3),
+            ),
+          );
+
+      expect(await repository.archiveOrDelete(referencedId), isTrue);
+      expect((await repository.getById(referencedId))!.isActive, isFalse);
+
+      expect(await repository.archiveOrDelete(unusedId), isFalse);
+      expect(await repository.getById(unusedId), isNull);
+
+      await repository.setActive(referencedId, true);
+      expect((await repository.getById(referencedId))!.isActive, isTrue);
+    },
+  );
+
+  test('archives an account referenced by a recurring payment', () async {
+    final accountId = await repository.create(
+      name: 'Карта',
+      initialBalance: 20000,
+    );
+    await database
+        .into(database.recurringPayments)
+        .insert(
+          RecurringPaymentsCompanion.insert(
+            name: 'Интернет',
+            amount: 5000,
+            accountId: Value(accountId),
+            frequency: 'MONTHLY',
+            startDate: DateTime(2026, 11, 3),
+          ),
+        );
+
+    expect(await repository.archiveOrDelete(accountId), isTrue);
+    expect((await repository.getById(accountId))!.isActive, isFalse);
   });
 }
