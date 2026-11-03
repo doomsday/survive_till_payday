@@ -59,13 +59,17 @@ class TransactionsRepository {
     _database.accounts,
   )..orderBy([(row) => OrderingTerm.asc(row.name)])).get();
 
-  Stream<List<Category>> watchCategories() => (_database.select(
-    _database.categories,
-  )..orderBy([(row) => OrderingTerm.asc(row.name)])).watch();
+  Stream<List<Category>> watchCategories() =>
+      (_database.select(_database.categories)
+            ..where((row) => row.isHidden.equals(false))
+            ..orderBy([(row) => OrderingTerm.asc(row.name)]))
+          .watch();
 
-  Future<List<Category>> getCategories() => (_database.select(
-    _database.categories,
-  )..orderBy([(row) => OrderingTerm.asc(row.name)])).get();
+  Future<List<Category>> getCategories() =>
+      (_database.select(_database.categories)
+            ..where((row) => row.isHidden.equals(false))
+            ..orderBy([(row) => OrderingTerm.asc(row.name)]))
+          .get();
 
   Stream<List<TransactionEntry>> watchEntries() => _database
       .customSelect(
@@ -244,11 +248,15 @@ class TransactionsRepository {
       }
       final normalizedDate = calendarDate(date);
       final memo = Value(description.trim());
+      final categoryId = target.isDeposit
+          ? await _depositTransferCategoryId()
+          : null;
       final sourceId = await _database
           .into(_database.transactions)
           .insert(
             TransactionsCompanion.insert(
               accountId: source.id,
+              categoryId: Value(categoryId),
               type: 'TRANSFER',
               amount: amount,
               currency: Value(source.currency),
@@ -264,6 +272,7 @@ class TransactionsRepository {
           .insert(
             TransactionsCompanion.insert(
               accountId: target.id,
+              categoryId: Value(categoryId),
               type: 'TRANSFER',
               amount: amount,
               currency: Value(target.currency),
@@ -359,6 +368,9 @@ class TransactionsRepository {
       }
       final oldSource = pair.first;
       final oldTarget = pair.last;
+      final categoryId = target.isDeposit
+          ? await _depositTransferCategoryId()
+          : null;
       await _changeBalance(oldSource.accountId, oldSource.amount);
       await _changeBalance(oldTarget.accountId, -oldTarget.amount);
       final normalizedDate = calendarDate(date);
@@ -368,6 +380,7 @@ class TransactionsRepository {
       )..where((row) => row.id.equals(oldSource.id))).write(
         TransactionsCompanion(
           accountId: Value(source.id),
+          categoryId: Value(categoryId),
           amount: Value(amount),
           currency: Value(source.currency),
           description: Value(memo),
@@ -380,6 +393,7 @@ class TransactionsRepository {
       )..where((row) => row.id.equals(oldTarget.id))).write(
         TransactionsCompanion(
           accountId: Value(target.id),
+          categoryId: Value(categoryId),
           amount: Value(amount),
           currency: Value(target.currency),
           description: Value(memo),
@@ -435,6 +449,16 @@ class TransactionsRepository {
     if (!account.isActive) throw StateError('Account is inactive.');
     return account;
   }
+
+  Future<int> _depositTransferCategoryId() async =>
+      (await (_database.select(_database.categories)..where(
+                (row) =>
+                    row.name.equals(depositTransferCategoryName) &
+                    row.type.equals('EXPENSE') &
+                    row.isHidden.equals(true),
+              ))
+              .getSingle())
+          .id;
 
   Future<Category?> _categoryForType(int? categoryId, String type) async {
     if (categoryId == null) return null;

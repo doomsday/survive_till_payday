@@ -28,6 +28,7 @@ void main() {
             AccountsCompanion.insert(
               name: 'Исходный счет',
               isNoWithdrawal: const Value(true),
+              isDeposit: const Value(true),
             ),
           );
       final changedRevision =
@@ -47,6 +48,7 @@ void main() {
       final restored = await database.select(database.accounts).getSingle();
       expect(restored.name, 'Исходный счет');
       expect(restored.isNoWithdrawal, isTrue);
+      expect(restored.isDeposit, isTrue);
       expect(await service.localBackups(), hasLength(1));
       expect(
         (await database.select(database.databaseMetadata).getSingle()).revision,
@@ -129,6 +131,8 @@ void main() {
         oldDatabase.execute(
           'ALTER TABLE accounts DROP COLUMN is_no_withdrawal',
         );
+        oldDatabase.execute('ALTER TABLE accounts DROP COLUMN is_deposit');
+        oldDatabase.execute('ALTER TABLE categories DROP COLUMN is_hidden');
         oldDatabase.execute('PRAGMA user_version = 4');
       } finally {
         oldDatabase.close();
@@ -216,6 +220,8 @@ void main() {
         oldDatabase.execute(
           'ALTER TABLE accounts DROP COLUMN is_no_withdrawal',
         );
+        oldDatabase.execute('ALTER TABLE accounts DROP COLUMN is_deposit');
+        oldDatabase.execute('ALTER TABLE categories DROP COLUMN is_hidden');
         oldDatabase.execute('PRAGMA user_version = 5');
       } finally {
         oldDatabase.close();
@@ -355,6 +361,8 @@ void main() {
           legacyDatabase.execute('DROP TRIGGER "$trigger"');
         }
         legacyDatabase.execute('DROP TABLE database_metadata');
+        legacyDatabase.execute('ALTER TABLE accounts DROP COLUMN is_deposit');
+        legacyDatabase.execute('ALTER TABLE categories DROP COLUMN is_hidden');
         legacyDatabase.execute(
           "INSERT OR REPLACE INTO app_settings (key, value) "
           "VALUES ('backup_database_id', 'legacy-copy')",

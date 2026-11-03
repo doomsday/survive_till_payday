@@ -25,7 +25,7 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
   static const _backupDirectoryName = 'payday-backups';
   static const _backupPrefix = 'payday-before-import-';
   static const _retainedBackupCount = 6;
-  static const _schemaVersion = 6;
+  static const _schemaVersion = 7;
 
   static const _columnsByTable = <String, List<String>>{
     'accounts': [
@@ -34,6 +34,7 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
       'type',
       'currency',
       'is_no_withdrawal',
+      'is_deposit',
       'initial_balance',
       'current_balance',
       'is_active',
@@ -47,6 +48,7 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
       'color',
       'is_system',
       'is_archived',
+      'is_hidden',
     ],
     'transactions': [
       'id',
@@ -229,6 +231,7 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
 
           final databaseId =
               sourceMetadata.databaseId ?? currentMetadata.databaseId;
+          await database.ensureDepositTransferCategory();
           await database.customStatement(
             'UPDATE database_metadata '
             'SET database_id = ?, revision = ?, '
@@ -287,7 +290,16 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
     Map<String, List<Map<String, Object?>>> rowsByTable,
   ) {
     final row = Map<String, Object?>.from(sourceRow);
-    if (table == 'accounts') row.putIfAbsent('is_no_withdrawal', () => 0);
+    if (table == 'accounts') {
+      row.putIfAbsent('is_no_withdrawal', () => 0);
+      row.putIfAbsent('is_deposit', () => 0);
+    }
+    if (table == 'categories') {
+      row.putIfAbsent(
+        'is_hidden',
+        () => row['name'] == depositTransferCategoryName ? 1 : 0,
+      );
+    }
     final linkColumn = switch (table) {
       'transactions' => 'linked_payment_occurrence_id',
       'payment_occurrences' || 'income_schedules' => 'linked_transaction_id',
@@ -378,7 +390,7 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
   void _validate(sqlite.Database source) {
     final version =
         source.select('PRAGMA user_version').single.values.first as int;
-    if (version != 4 && version != 5 && version != _schemaVersion) {
+    if (version < 4 || version > _schemaVersion) {
       throw const DatabaseBackupException(
         'Версия файла базы данных не поддерживается.',
       );
@@ -402,6 +414,10 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
       final expectedColumns = entry.value.toSet();
       if (entry.key == 'accounts' && !columns.contains('is_no_withdrawal')) {
         expectedColumns.remove('is_no_withdrawal');
+      }
+      if (version < 7) {
+        if (entry.key == 'accounts') expectedColumns.remove('is_deposit');
+        if (entry.key == 'categories') expectedColumns.remove('is_hidden');
       }
       if (columns.length != expectedColumns.length ||
           !columns.containsAll(expectedColumns)) {

@@ -62,6 +62,27 @@ void main() {
       expect(result.daysUntilPayday, 0);
       expect(result.dailySafeToSpend, isNull);
     });
+
+    test('carries unused and overspent amounts into today', () {
+      final result = calculateFinanceSnapshot(
+        currentBalance: 0,
+        expectedIncome: 0,
+        reservedPayments: 0,
+        reserve: 0,
+        today: today,
+        nextPayday: DateTime(2026, 11, 7),
+        periodDays: 10,
+        elapsedDays: 5,
+        expensesBeforeToday: 8000,
+        expensesToday: 3000,
+      );
+
+      expect(result.dailySafeToSpend, 1100);
+      expect(result.accumulatedBalance, -2500);
+      expect(result.availableToday, -1400);
+      expect(result.todayExpenses, 3000);
+      expect(result.dayBalance, -4400);
+    });
   });
 
   group('scheduled dates', () {
@@ -114,6 +135,17 @@ void main() {
           frequency: PlanningFrequency.once,
         ),
         isNull,
+      );
+    });
+
+    test('computes a prior scheduled date using its original payment day', () {
+      expect(
+        previousScheduledDate(
+          date: DateTime(2026, 3, 31),
+          frequency: PlanningFrequency.monthly,
+          paymentDay: 31,
+        ),
+        DateTime(2026, 2, 28),
       );
     });
   });

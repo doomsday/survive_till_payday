@@ -95,7 +95,8 @@ class AnalyticsRepository {
               transaction.type == 'TRANSFER' &&
               transaction.transferGroupId != null &&
               transaction.transferGroupId != transaction.id &&
-              accountsById[transaction.accountId]?.isNoWithdrawal == true,
+              (accountsById[transaction.accountId]?.isNoWithdrawal == true ||
+                  accountsById[transaction.accountId]?.isDeposit == true),
           categoryId: transaction.categoryId,
           categoryName: categoriesById[transaction.categoryId]?.name,
           categoryColor: categoriesById[transaction.categoryId]?.color,

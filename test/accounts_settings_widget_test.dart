@@ -47,12 +47,19 @@ void main() {
       ),
       findsOneWidget,
     );
+    await tester.ensureVisible(find.text('Без снятия'));
     await tester.tap(find.text('Без снятия'));
+    await tester.ensureVisible(find.text('Депозит'));
+    await tester.tap(find.text('Депозит'));
     await tester.tap(find.text('Сохранить'));
     await tester.pumpAndSettle();
 
     expect(
       (await database.select(database.accounts).getSingle()).isNoWithdrawal,
+      isTrue,
+    );
+    expect(
+      (await database.select(database.accounts).getSingle()).isDeposit,
       isTrue,
     );
     expect(find.text('Kaspi Gold'), findsOneWidget);

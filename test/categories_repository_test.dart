@@ -36,6 +36,16 @@ void main() {
       expect(categories.every((category) => category.isSystem), isTrue);
       expect(categories.map((category) => category.name), contains('Продукты'));
       expect(categories.map((category) => category.name), contains('Зарплата'));
+      expect(
+        categories.map((category) => category.name),
+        isNot(contains(depositTransferCategoryName)),
+      );
+      final hiddenCategory =
+          await (database.select(database.categories)..where(
+                (category) => category.name.equals(depositTransferCategoryName),
+              ))
+              .getSingle();
+      expect(hiddenCategory.isHidden, isTrue);
     },
   );
 
@@ -142,6 +152,12 @@ void main() {
         await databaseUnderTest.customStatement(
           'ALTER TABLE accounts DROP COLUMN is_no_withdrawal',
         );
+        await databaseUnderTest.customStatement(
+          'ALTER TABLE accounts DROP COLUMN is_deposit',
+        );
+        await databaseUnderTest.customStatement(
+          'ALTER TABLE categories DROP COLUMN is_hidden',
+        );
         await databaseUnderTest.customStatement('PRAGMA user_version = 1');
         await databaseUnderTest.close();
 
@@ -149,7 +165,7 @@ void main() {
         final categories = await databaseUnderTest
             .select(databaseUnderTest.categories)
             .get();
-        expect(categories, hasLength(20));
+        expect(categories, hasLength(21));
         expect(
           categories.map((category) => category.name),
           contains('Моя категория'),

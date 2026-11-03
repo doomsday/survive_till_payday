@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:survive_till_payday/core/database/app_database.dart';
 import 'package:survive_till_payday/features/analytics/analytics_repository.dart';
 import 'package:survive_till_payday/features/analytics/domain/analytics_models.dart';
+import 'package:survive_till_payday/features/transactions/transactions_repository.dart';
 
 void main() {
   late AppDatabase database;
@@ -172,5 +173,42 @@ void main() {
     expect(report.categories.single.name, 'Без категории');
     expect(report.categories.single.amount, 9000);
     expect(report.topMerchants.single.count, 1);
+  });
+
+  test('categorizes and reports transfers to deposit accounts', () async {
+    final sourceId = await database
+        .into(database.accounts)
+        .insert(AccountsCompanion.insert(name: 'Основной'));
+    final depositId = await database
+        .into(database.accounts)
+        .insert(
+          AccountsCompanion.insert(name: 'Вклад', isDeposit: const Value(true)),
+        );
+    final transactionId = await TransactionsRepository(database).addTransfer(
+      sourceAccountId: sourceId,
+      targetAccountId: depositId,
+      amount: 12000,
+      date: DateTime(2026, 11, 3),
+    );
+    final pair = await (database.select(
+      database.transactions,
+    )..where((row) => row.transferGroupId.equals(transactionId))).get();
+
+    expect(pair, hasLength(2));
+    expect(pair.every((transaction) => transaction.categoryId != null), isTrue);
+    final report = await repository.getReport(
+      AnalyticsQuery(
+        period: AnalyticsPeriod.currentMonth,
+        range: analyticsRangeFor(
+          AnalyticsPeriod.currentMonth,
+          now: DateTime(2026, 11, 3),
+        ),
+        currency: 'KZT',
+      ),
+    );
+
+    expect(report.totals.expenses, 12000);
+    expect(report.categories.single.name, depositTransferCategoryName);
+    expect(report.categories.single.amount, 12000);
   });
 }

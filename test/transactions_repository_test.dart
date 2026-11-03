@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:survive_till_payday/core/database/app_database.dart';
+import 'package:survive_till_payday/features/accounts/accounts_repository.dart';
 import 'package:survive_till_payday/features/transactions/transactions_repository.dart';
 
 void main() {
@@ -133,6 +134,50 @@ void main() {
       expect(await repository.getEntries(), isEmpty);
     },
   );
+
+  test('deposit flag syncs transfer categories for existing pairs', () async {
+    final sourceId = await addAccount('Основной', 100000);
+    final targetId = await addAccount('Вклад', 0);
+    final transferId = await repository.addTransfer(
+      sourceAccountId: sourceId,
+      targetAccountId: targetId,
+      amount: 10000,
+      date: DateTime(2026, 11, 3),
+    );
+    final category =
+        await (database.select(database.categories)
+              ..where((row) => row.name.equals(depositTransferCategoryName)))
+            .getSingle();
+    final accountsRepository = AccountsRepository(database);
+
+    await accountsRepository.update(
+      id: targetId,
+      name: 'Вклад',
+      type: 'BANK',
+      initialBalance: 0,
+      currentBalance: 10000,
+      isNoWithdrawal: false,
+      isDeposit: true,
+    );
+    var pair = await (database.select(
+      database.transactions,
+    )..where((row) => row.transferGroupId.equals(transferId))).get();
+    expect(pair.every((item) => item.categoryId == category.id), isTrue);
+
+    await accountsRepository.update(
+      id: targetId,
+      name: 'Вклад',
+      type: 'BANK',
+      initialBalance: 0,
+      currentBalance: 10000,
+      isNoWithdrawal: false,
+      isDeposit: false,
+    );
+    pair = await (database.select(
+      database.transactions,
+    )..where((row) => row.transferGroupId.equals(transferId))).get();
+    expect(pair.every((item) => item.categoryId == null), isTrue);
+  });
 
   test('date, category, type and text filters work together', () async {
     final accountId = await addAccount('Основной', 100000);

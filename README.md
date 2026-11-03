@@ -14,14 +14,17 @@ required.
   adds an income transaction and prevents the forecast from counting it twice.
 - Set a virtual reserve and the next payday. The dashboard calculates
   `Safe to Spend = active balances + expected income - unpaid obligations - reserve`
-  for the current payday cycle, along with a non-negative daily limit.
+  for the current payday cycle. Its daily-limit card carries unused budget and
+  overspending forward through the cycle, based on transaction dates. Planned
+  payments reduce the daily allowance across the period; recording their linked
+  payment does not subtract the same amount again from that day's budget.
 - Add a quick expense from the dashboard.
 - Create bank or cash accounts in Settings with their starting balance. When
   recording an income or payment without an account, the app offers to create
   one and then continues the operation.
-- The dashboard highlights Safe to Spend, daily limit and payday, monthly income
-  and spending, upcoming or overdue obligations, category spending, and the
-  latest transactions.
+- The dashboard highlights Safe to Spend, today's available amount and balance,
+  the daily limit and payday, monthly income and spending, upcoming or overdue
+  obligations, category spending, and the latest transactions.
 - The Operations tab supports searchable, date/account/category/type-filtered
   transaction history, income and expense creation/editing/deletion, and
   paired same-currency transfers that update both account balances.

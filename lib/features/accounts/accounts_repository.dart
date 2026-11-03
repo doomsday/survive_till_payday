@@ -30,6 +30,7 @@ class AccountsRepository {
     required int initialBalance,
     String type = 'BANK',
     bool isNoWithdrawal = false,
+    bool isDeposit = false,
   }) {
     _validate(name, type, initialBalance);
     return _database
@@ -39,6 +40,7 @@ class AccountsRepository {
             name: name.trim(),
             type: Value(type),
             isNoWithdrawal: Value(isNoWithdrawal),
+            isDeposit: Value(isDeposit),
             initialBalance: Value(initialBalance),
             currentBalance: Value(initialBalance),
           ),
@@ -52,21 +54,58 @@ class AccountsRepository {
     required int initialBalance,
     required int currentBalance,
     required bool isNoWithdrawal,
+    required bool isDeposit,
   }) async {
     _validate(name, type, initialBalance);
-    final updated =
-        await (_database.update(
-          _database.accounts,
-        )..where((account) => account.id.equals(id))).write(
-          AccountsCompanion(
-            name: Value(name.trim()),
-            type: Value(type),
-            isNoWithdrawal: Value(isNoWithdrawal),
-            initialBalance: Value(initialBalance),
-            currentBalance: Value(currentBalance),
-          ),
-        );
-    if (updated == 0) throw StateError('Account $id does not exist.');
+    await _database.transaction(() async {
+      final updated =
+          await (_database.update(
+            _database.accounts,
+          )..where((account) => account.id.equals(id))).write(
+            AccountsCompanion(
+              name: Value(name.trim()),
+              type: Value(type),
+              isNoWithdrawal: Value(isNoWithdrawal),
+              isDeposit: Value(isDeposit),
+              initialBalance: Value(initialBalance),
+              currentBalance: Value(currentBalance),
+            ),
+          );
+      if (updated == 0) throw StateError('Account $id does not exist.');
+      await _syncDepositTransferCategories(id, isDeposit);
+    });
+  }
+
+  Future<void> _syncDepositTransferCategories(
+    int accountId,
+    bool isDeposit,
+  ) async {
+    final categoryId = isDeposit
+        ? (await (_database.select(_database.categories)..where(
+                    (category) =>
+                        category.name.equals(depositTransferCategoryName) &
+                        category.type.equals('EXPENSE') &
+                        category.isHidden.equals(true),
+                  ))
+                  .getSingle())
+              .id
+        : null;
+    final targetTransfers = await _database
+        .customSelect(
+          'SELECT transfer_group_id FROM transactions '
+          "WHERE account_id = ? AND type = 'TRANSFER' "
+          'AND transfer_group_id IS NOT NULL '
+          'AND id != transfer_group_id',
+          variables: [Variable.withInt(accountId)],
+          readsFrom: {_database.transactions},
+        )
+        .get();
+    for (final transfer in targetTransfers) {
+      final groupId = transfer.read<int>('transfer_group_id');
+      await (_database.update(_database.transactions)
+            ..where((row) => row.transferGroupId.equals(groupId)))
+          .write(TransactionsCompanion(categoryId: Value(categoryId)));
+    }
   }
 
   void _validate(String name, String type, int initialBalance) {

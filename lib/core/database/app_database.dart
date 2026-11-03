@@ -3,6 +3,8 @@ import 'package:drift_flutter/drift_flutter.dart';
 
 part 'app_database.g.dart';
 
+const depositTransferCategoryName = 'Перевод на депозит';
+
 class Accounts extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text().withLength(min: 1, max: 80)();
@@ -10,6 +12,7 @@ class Accounts extends Table {
   TextColumn get currency => text().withDefault(const Constant('KZT'))();
   BoolColumn get isNoWithdrawal =>
       boolean().withDefault(const Constant(false))();
+  BoolColumn get isDeposit => boolean().withDefault(const Constant(false))();
   IntColumn get initialBalance => integer().withDefault(const Constant(0))();
   IntColumn get currentBalance => integer().withDefault(const Constant(0))();
   BoolColumn get isActive => boolean().withDefault(const Constant(true))();
@@ -24,6 +27,7 @@ class Categories extends Table {
   IntColumn get color => integer().withDefault(const Constant(0xFF607D8B))();
   BoolColumn get isSystem => boolean().withDefault(const Constant(false))();
   BoolColumn get isArchived => boolean().withDefault(const Constant(false))();
+  BoolColumn get isHidden => boolean().withDefault(const Constant(false))();
 }
 
 class Transactions extends Table {
@@ -140,7 +144,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -150,7 +154,6 @@ class AppDatabase extends _$AppDatabase {
       await _ensureMetadata();
     },
     onUpgrade: (m, from, to) async {
-      if (from < 2) await _seedDefaultCategories();
       if (from < 3) {
         await m.addColumn(recurringPayments, recurringPayments.isAutoPay);
       }
@@ -160,9 +163,16 @@ class AppDatabase extends _$AppDatabase {
         await _ensureMetadata();
       }
       if (from < 6) await m.addColumn(accounts, accounts.isNoWithdrawal);
+      if (from < 7) {
+        await m.addColumn(accounts, accounts.isDeposit);
+        await m.addColumn(categories, categories.isHidden);
+        await ensureDepositTransferCategory();
+      }
+      if (from < 2) await _seedDefaultCategories();
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
+      await ensureDepositTransferCategory();
       await _ensureMetadata();
       await _installRevisionTriggers();
     },
@@ -245,5 +255,28 @@ class AppDatabase extends _$AppDatabase {
         }
       }
     });
+    await ensureDepositTransferCategory();
+  }
+
+  Future<void> ensureDepositTransferCategory() async {
+    final existing =
+        await (select(categories)..where(
+              (category) =>
+                  category.name.equals(depositTransferCategoryName) &
+                  category.type.equals('EXPENSE') &
+                  category.isHidden.equals(true),
+            ))
+            .getSingleOrNull();
+    if (existing != null) return;
+    await into(categories).insert(
+      CategoriesCompanion.insert(
+        name: depositTransferCategoryName,
+        type: 'EXPENSE',
+        icon: const Value('savings'),
+        color: const Value(0xFF00897B),
+        isSystem: const Value(true),
+        isHidden: const Value(true),
+      ),
+    );
   }
 }

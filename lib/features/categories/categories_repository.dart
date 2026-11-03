@@ -18,10 +18,12 @@ class CategoriesRepository {
   final AppDatabase _database;
 
   Stream<List<Category>> watchAll() =>
-      (_database.select(_database.categories)..orderBy([
-            (category) => OrderingTerm.asc(category.type),
-            (category) => OrderingTerm.asc(category.name),
-          ]))
+      (_database.select(_database.categories)
+            ..where((category) => category.isHidden.equals(false))
+            ..orderBy([
+              (category) => OrderingTerm.asc(category.type),
+              (category) => OrderingTerm.asc(category.name),
+            ]))
           .watch();
 
   Future<int> create({

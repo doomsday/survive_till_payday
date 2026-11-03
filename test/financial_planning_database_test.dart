@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:drift/drift.dart';
@@ -35,7 +37,7 @@ void main() {
       final accountId = await addAccount();
       await planning.createRecurringPayment(
         name: 'Интернет',
-        amount: 10000,
+        amount: 30000,
         frequency: 'MONTHLY',
         startDate: today,
       );
@@ -47,8 +49,11 @@ void main() {
       await planning.setNextPayday(DateTime(2026, 11, 7));
       await planning.setReserve(20000, enabled: true);
       var snapshot = await planning.getSnapshot(now: today);
-      expect(snapshot.reservedPayments, 10000);
-      expect(snapshot.safeToSpend, 70000);
+      expect(snapshot.reservedPayments, 30000);
+      expect(snapshot.safeToSpend, 50000);
+      final dailyLimitBeforePayment = snapshot.dailySafeToSpend;
+      expect(dailyLimitBeforePayment, 1666);
+      final dayBalanceBeforePayment = snapshot.dayBalance;
 
       final dueToday = after.firstWhere((item) => item.dueDate == today);
       await planning.payOccurrence(
@@ -59,8 +64,11 @@ void main() {
       );
       snapshot = await planning.getSnapshot(now: today);
       expect(snapshot.currentBalance, 96000);
-      expect(snapshot.reservedPayments, 6000);
-      expect(snapshot.safeToSpend, 70000);
+      expect(snapshot.reservedPayments, 26000);
+      expect(snapshot.safeToSpend, 50000);
+      expect(snapshot.dailySafeToSpend, dailyLimitBeforePayment);
+      expect(snapshot.todayExpenses, 0);
+      expect(snapshot.dayBalance, dayBalanceBeforePayment);
 
       final partiallyPaid = await (database.select(
         database.paymentOccurrences,
@@ -68,13 +76,16 @@ void main() {
       await planning.payOccurrence(
         occurrence: partiallyPaid,
         accountId: accountId,
-        amount: 6000,
+        amount: 26000,
         paidDate: today,
       );
       snapshot = await planning.getSnapshot(now: today);
-      expect(snapshot.currentBalance, 90000);
+      expect(snapshot.currentBalance, 70000);
       expect(snapshot.reservedPayments, 0);
-      expect(snapshot.safeToSpend, 70000);
+      expect(snapshot.safeToSpend, 50000);
+      expect(snapshot.dailySafeToSpend, dailyLimitBeforePayment);
+      expect(snapshot.todayExpenses, 0);
+      expect(snapshot.dayBalance, dayBalanceBeforePayment);
     },
   );
 
@@ -104,7 +115,109 @@ void main() {
 
       expect(snapshot.currentBalance, 60000);
       expect(snapshot.safeToSpend, 60000);
-      expect(snapshot.dailySafeToSpend, 12000);
+      expect(snapshot.dailySafeToSpend, 2000);
+    },
+  );
+
+  test(
+    'daily budget uses transaction dates and carries prior spending balance',
+    () async {
+      final accountId = await addAccount();
+      await planning.setNextPayday(DateTime(2026, 11, 7));
+      await planning.createIncomeSchedule(
+        name: 'Salary',
+        amount: 50000,
+        frequency: 'MONTHLY',
+        expectedDate: DateTime(2026, 11, 7),
+      );
+      await database
+          .into(database.transactions)
+          .insert(
+            TransactionsCompanion.insert(
+              accountId: accountId,
+              type: 'INCOME',
+              amount: 50000,
+              description: const Value('Salary'),
+              transactionDate: DateTime(2026, 10, 10),
+            ),
+          );
+
+      Future<void> addExpense(DateTime date, int amount) async {
+        await database
+            .into(database.transactions)
+            .insert(
+              TransactionsCompanion.insert(
+                accountId: accountId,
+                type: 'EXPENSE',
+                amount: amount,
+                transactionDate: date,
+                createdAt: Value(DateTime(2026, 12, 1)),
+              ),
+            );
+      }
+
+      await addExpense(DateTime(2026, 10, 6), 5000);
+      await addExpense(DateTime(2026, 11, 1), 10000);
+      await addExpense(today, 2000);
+
+      final snapshot = await planning.getSnapshot(now: today);
+
+      expect(snapshot.dailySafeToSpend, 4148);
+      expect(snapshot.accumulatedBalance, 81256);
+      expect(snapshot.availableToday, 85404);
+      expect(snapshot.todayExpenses, 2000);
+      expect(snapshot.dayBalance, 83404);
+    },
+  );
+
+  test(
+    'daily budget refreshes on transaction create, edit, and delete',
+    () async {
+      final accountId = await addAccount();
+      await planning.setNextPayday(DateTime(2026, 11, 7));
+      await planning.createIncomeSchedule(
+        name: 'Salary',
+        amount: 50000,
+        frequency: 'MONTHLY',
+        expectedDate: DateTime(2026, 11, 7),
+      );
+      final snapshots = StreamIterator(planning.watchSnapshot());
+      Future<void> expectExpenses(int expected) async {
+        while (await snapshots.moveNext().timeout(const Duration(seconds: 2))) {
+          if (snapshots.current.todayExpenses == expected) return;
+        }
+        fail('No daily budget update for expenses of $expected');
+      }
+
+      await expectExpenses(0);
+      expect(snapshots.current.todayExpenses, 0);
+
+      final transactionId = await database
+          .into(database.transactions)
+          .insert(
+            TransactionsCompanion.insert(
+              accountId: accountId,
+              type: 'EXPENSE',
+              amount: 1000,
+              transactionDate: calendarDate(DateTime.now()),
+            ),
+          );
+      await expectExpenses(1000);
+      expect(snapshots.current.todayExpenses, 1000);
+
+      await (database.update(database.transactions)
+            ..where((row) => row.id.equals(transactionId)))
+          .write(const TransactionsCompanion(amount: Value(2500)));
+      await expectExpenses(2500);
+      expect(snapshots.current.todayExpenses, 2500);
+
+      await (database.delete(
+        database.transactions,
+      )..where((row) => row.id.equals(transactionId))).go();
+      await expectExpenses(0);
+      expect(snapshots.current.todayExpenses, 0);
+
+      await snapshots.cancel();
     },
   );
 

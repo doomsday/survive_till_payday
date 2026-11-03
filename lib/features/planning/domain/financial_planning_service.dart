@@ -40,6 +40,23 @@ DateTime? nextScheduledDate({
   };
 }
 
+DateTime? previousScheduledDate({
+  required DateTime date,
+  required PlanningFrequency frequency,
+  int? paymentDay,
+}) {
+  final day = paymentDay ?? date.day;
+  return switch (frequency) {
+    PlanningFrequency.once => null,
+    PlanningFrequency.weekly => calendarDate(
+      date.subtract(const Duration(days: 7)),
+    ),
+    PlanningFrequency.monthly => _monthDate(date.year, date.month - 1, day),
+    PlanningFrequency.quarterly => _monthDate(date.year, date.month - 3, day),
+    PlanningFrequency.yearly => _monthDate(date.year - 1, date.month, day),
+  };
+}
+
 DateTime _monthDate(int year, int month, int day) {
   final first = DateTime(year, month);
   final lastDay = DateTime(first.year, first.month + 1, 0).day;
@@ -56,6 +73,10 @@ class FinanceSnapshot {
     required this.daysUntilPayday,
     required this.safeToSpend,
     required this.dailySafeToSpend,
+    required this.accumulatedBalance,
+    required this.availableToday,
+    required this.todayExpenses,
+    required this.dayBalance,
   });
 
   final int currentBalance;
@@ -66,6 +87,10 @@ class FinanceSnapshot {
   final int? daysUntilPayday;
   final int? safeToSpend;
   final int? dailySafeToSpend;
+  final int? accumulatedBalance;
+  final int? availableToday;
+  final int? todayExpenses;
+  final int? dayBalance;
 }
 
 class CategorySpending {
@@ -126,6 +151,10 @@ FinanceSnapshot calculateFinanceSnapshot({
   required int reserve,
   required DateTime today,
   required DateTime? nextPayday,
+  int? periodDays,
+  int elapsedDays = 0,
+  int expensesBeforeToday = 0,
+  int expensesToday = 0,
 }) {
   final normalizedToday = calendarDate(today);
   final normalizedPayday = switch (nextPayday) {
@@ -137,6 +166,21 @@ FinanceSnapshot calculateFinanceSnapshot({
     null => null,
     _ => currentBalance + expectedIncome - reservedPayments - reserve,
   };
+  final hasPeriod = periodDays != null && periodDays > 0;
+  final periodBudget = safeToSpend == null || !hasPeriod
+      ? null
+      : safeToSpend + expensesBeforeToday + expensesToday;
+  final dailyLimit = safeToSpend == null || days == null || days <= 0
+      ? null
+      : hasPeriod
+      ? (periodBudget! < 0 ? 0 : periodBudget) ~/ periodDays
+      : (safeToSpend < 0 ? 0 : safeToSpend) ~/ days;
+  final accumulatedBalance = dailyLimit == null
+      ? null
+      : dailyLimit * elapsedDays - expensesBeforeToday;
+  final availableToday = dailyLimit == null || accumulatedBalance == null
+      ? null
+      : dailyLimit + accumulatedBalance;
   return FinanceSnapshot(
     currentBalance: currentBalance,
     expectedIncome: expectedIncome,
@@ -145,9 +189,11 @@ FinanceSnapshot calculateFinanceSnapshot({
     nextPayday: normalizedPayday,
     daysUntilPayday: days,
     safeToSpend: safeToSpend,
-    dailySafeToSpend: safeToSpend == null || days == null || days <= 0
-        ? null
-        : (safeToSpend < 0 ? 0 : safeToSpend) ~/ days,
+    dailySafeToSpend: dailyLimit,
+    accumulatedBalance: accumulatedBalance,
+    availableToday: availableToday,
+    todayExpenses: dailyLimit == null ? null : expensesToday,
+    dayBalance: availableToday == null ? null : availableToday - expensesToday,
   );
 }
 
@@ -190,6 +236,7 @@ class FinancialPlanningService {
             'SELECT 1',
             readsFrom: {
               db.accounts,
+              db.transactions,
               db.paymentOccurrences,
               db.incomeSchedules,
               db.appSettings,
@@ -421,6 +468,12 @@ class FinancialPlanningService {
       today,
       settingValues,
     );
+    final previousPayday = await _resolvePreviousPayday(
+      incomes,
+      today,
+      nextPayday,
+      settingValues,
+    );
     var expectedIncome = 0;
     if (nextPayday != null && nextPayday.isAfter(today)) {
       for (final income in incomes) {
@@ -474,6 +527,43 @@ class FinancialPlanningService {
         if (remaining > 0) reservedPayments += remaining;
       }
     }
+    int? periodDays;
+    var elapsedDays = 0;
+    var expensesBeforeToday = 0;
+    var expensesToday = 0;
+    if (nextPayday != null && previousPayday != null) {
+      final periodStart = previousPayday.add(const Duration(days: 1));
+      final totalDays = nextPayday.difference(periodStart).inDays;
+      if (totalDays > 0 && !periodStart.isAfter(today)) {
+        periodDays = totalDays;
+        elapsedDays = today.difference(periodStart).inDays;
+        final spendableAccountIds = activeAccounts
+            .where((account) => !account.isNoWithdrawal)
+            .map((account) => account.id)
+            .toList();
+        final cycleTransactions =
+            await (db.select(db.transactions)..where(
+                  (transaction) =>
+                      transaction.type.equals('EXPENSE') &
+                      transaction.linkedPaymentOccurrenceId.isNull() &
+                      transaction.accountId.isIn(spendableAccountIds) &
+                      transaction.transactionDate.isBiggerOrEqualValue(
+                        periodStart,
+                      ) &
+                      transaction.transactionDate.isSmallerThanValue(
+                        today.add(const Duration(days: 1)),
+                      ),
+                ))
+                .get();
+        for (final transaction in cycleTransactions) {
+          if (transaction.transactionDate.isBefore(today)) {
+            expensesBeforeToday += transaction.amount;
+          } else {
+            expensesToday += transaction.amount;
+          }
+        }
+      }
+    }
     return calculateFinanceSnapshot(
       currentBalance: currentBalance,
       expectedIncome: expectedIncome,
@@ -481,7 +571,84 @@ class FinancialPlanningService {
       reserve: reserve,
       today: today,
       nextPayday: nextPayday,
+      periodDays: periodDays,
+      elapsedDays: elapsedDays,
+      expensesBeforeToday: expensesBeforeToday,
+      expensesToday: expensesToday,
     );
+  }
+
+  Future<DateTime?> _resolvePreviousPayday(
+    List<IncomeSchedule> incomes,
+    DateTime today,
+    DateTime? nextPayday,
+    Map<String, String> settings,
+  ) async {
+    if (nextPayday == null) return null;
+    final salaryTransactions =
+        await (db.select(db.transactions)
+              ..where(
+                (transaction) =>
+                    transaction.type.equals('INCOME') &
+                    transaction.transactionDate.isSmallerThanValue(today),
+              )
+              ..orderBy([
+                (transaction) => OrderingTerm.desc(transaction.transactionDate),
+              ]))
+            .get();
+    for (final transaction in salaryTransactions) {
+      if (_isSalary(transaction.description) &&
+          transaction.transactionDate.isBefore(nextPayday)) {
+        return calendarDate(transaction.transactionDate);
+      }
+    }
+
+    DateTime? previous;
+    for (final income in incomes) {
+      if (!_isSalary(income.name)) continue;
+      final frequency = parseFrequency(income.frequency);
+      final paymentDay =
+          int.tryParse(settings['income_schedule_${income.id}_day'] ?? '') ??
+          income.expectedDate.day;
+      var date = calendarDate(income.expectedDate);
+      if (frequency == PlanningFrequency.once) {
+        if (date.isBefore(today) && date.isBefore(nextPayday)) {
+          if (previous == null || date.isAfter(previous)) previous = date;
+        }
+        continue;
+      }
+      for (var index = 0; !date.isBefore(today) && index < 600; index++) {
+        final preceding = previousScheduledDate(
+          date: date,
+          frequency: frequency,
+          paymentDay: paymentDay,
+        );
+        if (preceding == null) break;
+        date = preceding;
+      }
+      for (var index = 0; index < 600; index++) {
+        final following = nextScheduledDate(
+          date: date,
+          frequency: frequency,
+          paymentDay: paymentDay,
+        );
+        if (following == null || !following.isBefore(today)) break;
+        date = following;
+      }
+      if (date.isBefore(today) &&
+          date.isBefore(nextPayday) &&
+          (previous == null || date.isAfter(previous))) {
+        previous = date;
+      }
+    }
+    if (previous != null) return previous;
+
+    return _monthDate(nextPayday.year, nextPayday.month - 1, nextPayday.day);
+  }
+
+  bool _isSalary(String name) {
+    final normalized = name.toLowerCase();
+    return normalized.contains('зарплат') || normalized.contains('salary');
   }
 
   DateTime? _resolvePayday(

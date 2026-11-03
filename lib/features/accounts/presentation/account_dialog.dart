@@ -52,6 +52,7 @@ class _AccountDialogState extends ConsumerState<_AccountDialog> {
   late final TextEditingController _currentBalance;
   late String _type;
   late bool _isNoWithdrawal;
+  late bool _isDeposit;
   String? _error;
   bool _saving = false;
 
@@ -62,6 +63,7 @@ class _AccountDialogState extends ConsumerState<_AccountDialog> {
     _name.text = account?.name ?? '';
     _type = account?.type ?? 'BANK';
     _isNoWithdrawal = account?.isNoWithdrawal ?? false;
+    _isDeposit = account?.isDeposit ?? false;
     _initialBalance = TextEditingController(
       text: '${account?.initialBalance ?? 0}',
     );
@@ -81,70 +83,82 @@ class _AccountDialogState extends ConsumerState<_AccountDialog> {
   @override
   Widget build(BuildContext context) => AlertDialog(
     title: Text(widget.account == null ? 'Новый счет' : 'Изменить счет'),
-    content: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        TextField(
-          controller: _name,
-          autofocus: widget.account == null,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(labelText: 'Название'),
-        ),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<String>(
-          initialValue: _type,
-          decoration: const InputDecoration(labelText: 'Тип'),
-          items: const [
-            DropdownMenuItem(value: 'BANK', child: Text('Банковский')),
-            DropdownMenuItem(value: 'CASH', child: Text('Наличные')),
-          ],
-          onChanged: (value) {
-            if (value != null) setState(() => _type = value);
-          },
-        ),
-        const SizedBox(height: 12),
-        CheckboxListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Без снятия'),
-          subtitle: const Text(
-            'Перевод на этот счет будет считаться тратой. Его остаток не войдет в доступные деньги и лимиты.',
+    content: SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _name,
+            autofocus: widget.account == null,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: const InputDecoration(labelText: 'Название'),
           ),
-          value: _isNoWithdrawal,
-          onChanged: (value) =>
-              setState(() => _isNoWithdrawal = value ?? false),
-          controlAffinity: ListTileControlAffinity.leading,
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _initialBalance,
-          keyboardType: TextInputType.number,
-          decoration: InputDecoration(
-            labelText: widget.account == null
-                ? 'Текущий остаток'
-                : 'Начальный остаток',
-            suffixText: '₸',
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            initialValue: _type,
+            decoration: const InputDecoration(labelText: 'Тип'),
+            items: const [
+              DropdownMenuItem(value: 'BANK', child: Text('Банковский')),
+              DropdownMenuItem(value: 'CASH', child: Text('Наличные')),
+            ],
+            onChanged: (value) {
+              if (value != null) setState(() => _type = value);
+            },
           ),
-        ),
-        if (widget.account != null) ...[
+          const SizedBox(height: 12),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Без снятия'),
+            subtitle: const Text(
+              'Перевод на этот счет будет считаться тратой. Его остаток не войдет в доступные деньги и лимиты.',
+            ),
+            value: _isNoWithdrawal,
+            onChanged: (value) =>
+                setState(() => _isNoWithdrawal = value ?? false),
+            controlAffinity: ListTileControlAffinity.leading,
+          ),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Депозит'),
+            subtitle: const Text(
+              'Переводы на этот счет будут считаться расходами категории «Перевод на депозит».',
+            ),
+            value: _isDeposit,
+            onChanged: (value) => setState(() => _isDeposit = value ?? false),
+            controlAffinity: ListTileControlAffinity.leading,
+          ),
           const SizedBox(height: 12),
           TextField(
-            controller: _currentBalance,
-            keyboardType: const TextInputType.numberWithOptions(signed: true),
-            decoration: const InputDecoration(
-              labelText: 'Текущий остаток',
+            controller: _initialBalance,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: widget.account == null
+                  ? 'Текущий остаток'
+                  : 'Начальный остаток',
               suffixText: '₸',
             ),
           ),
-        ],
-        if (_error != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              _error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
+          if (widget.account != null) ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: _currentBalance,
+              keyboardType: const TextInputType.numberWithOptions(signed: true),
+              decoration: const InputDecoration(
+                labelText: 'Текущий остаток',
+                suffixText: '₸',
+              ),
             ),
-          ),
-      ],
+          ],
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
+        ],
+      ),
     ),
     actions: [
       TextButton(
@@ -186,6 +200,7 @@ class _AccountDialogState extends ConsumerState<_AccountDialog> {
           type: _type,
           initialBalance: initialBalance,
           isNoWithdrawal: _isNoWithdrawal,
+          isDeposit: _isDeposit,
         );
       } else {
         await repository.update(
@@ -195,6 +210,7 @@ class _AccountDialogState extends ConsumerState<_AccountDialog> {
           initialBalance: initialBalance,
           currentBalance: currentBalance!,
           isNoWithdrawal: _isNoWithdrawal,
+          isDeposit: _isDeposit,
         );
       }
       ref.invalidate(allAccountsProvider);

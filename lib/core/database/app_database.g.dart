@@ -71,6 +71,21 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _isDepositMeta = const VerificationMeta(
+    'isDeposit',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeposit = GeneratedColumn<bool>(
+    'is_deposit',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deposit" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _initialBalanceMeta = const VerificationMeta(
     'initialBalance',
   );
@@ -129,6 +144,7 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
     type,
     currency,
     isNoWithdrawal,
+    isDeposit,
     initialBalance,
     currentBalance,
     isActive,
@@ -176,6 +192,12 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
           data['is_no_withdrawal']!,
           _isNoWithdrawalMeta,
         ),
+      );
+    }
+    if (data.containsKey('is_deposit')) {
+      context.handle(
+        _isDepositMeta,
+        isDeposit.isAcceptableOrUnknown(data['is_deposit']!, _isDepositMeta),
       );
     }
     if (data.containsKey('initial_balance')) {
@@ -237,6 +259,10 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
         DriftSqlType.bool,
         data['${effectivePrefix}is_no_withdrawal'],
       )!,
+      isDeposit: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deposit'],
+      )!,
       initialBalance: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}initial_balance'],
@@ -268,6 +294,7 @@ class Account extends DataClass implements Insertable<Account> {
   final String type;
   final String currency;
   final bool isNoWithdrawal;
+  final bool isDeposit;
   final int initialBalance;
   final int currentBalance;
   final bool isActive;
@@ -278,6 +305,7 @@ class Account extends DataClass implements Insertable<Account> {
     required this.type,
     required this.currency,
     required this.isNoWithdrawal,
+    required this.isDeposit,
     required this.initialBalance,
     required this.currentBalance,
     required this.isActive,
@@ -291,6 +319,7 @@ class Account extends DataClass implements Insertable<Account> {
     map['type'] = Variable<String>(type);
     map['currency'] = Variable<String>(currency);
     map['is_no_withdrawal'] = Variable<bool>(isNoWithdrawal);
+    map['is_deposit'] = Variable<bool>(isDeposit);
     map['initial_balance'] = Variable<int>(initialBalance);
     map['current_balance'] = Variable<int>(currentBalance);
     map['is_active'] = Variable<bool>(isActive);
@@ -305,6 +334,7 @@ class Account extends DataClass implements Insertable<Account> {
       type: Value(type),
       currency: Value(currency),
       isNoWithdrawal: Value(isNoWithdrawal),
+      isDeposit: Value(isDeposit),
       initialBalance: Value(initialBalance),
       currentBalance: Value(currentBalance),
       isActive: Value(isActive),
@@ -323,6 +353,7 @@ class Account extends DataClass implements Insertable<Account> {
       type: serializer.fromJson<String>(json['type']),
       currency: serializer.fromJson<String>(json['currency']),
       isNoWithdrawal: serializer.fromJson<bool>(json['isNoWithdrawal']),
+      isDeposit: serializer.fromJson<bool>(json['isDeposit']),
       initialBalance: serializer.fromJson<int>(json['initialBalance']),
       currentBalance: serializer.fromJson<int>(json['currentBalance']),
       isActive: serializer.fromJson<bool>(json['isActive']),
@@ -338,6 +369,7 @@ class Account extends DataClass implements Insertable<Account> {
       'type': serializer.toJson<String>(type),
       'currency': serializer.toJson<String>(currency),
       'isNoWithdrawal': serializer.toJson<bool>(isNoWithdrawal),
+      'isDeposit': serializer.toJson<bool>(isDeposit),
       'initialBalance': serializer.toJson<int>(initialBalance),
       'currentBalance': serializer.toJson<int>(currentBalance),
       'isActive': serializer.toJson<bool>(isActive),
@@ -351,6 +383,7 @@ class Account extends DataClass implements Insertable<Account> {
     String? type,
     String? currency,
     bool? isNoWithdrawal,
+    bool? isDeposit,
     int? initialBalance,
     int? currentBalance,
     bool? isActive,
@@ -361,6 +394,7 @@ class Account extends DataClass implements Insertable<Account> {
     type: type ?? this.type,
     currency: currency ?? this.currency,
     isNoWithdrawal: isNoWithdrawal ?? this.isNoWithdrawal,
+    isDeposit: isDeposit ?? this.isDeposit,
     initialBalance: initialBalance ?? this.initialBalance,
     currentBalance: currentBalance ?? this.currentBalance,
     isActive: isActive ?? this.isActive,
@@ -375,6 +409,7 @@ class Account extends DataClass implements Insertable<Account> {
       isNoWithdrawal: data.isNoWithdrawal.present
           ? data.isNoWithdrawal.value
           : this.isNoWithdrawal,
+      isDeposit: data.isDeposit.present ? data.isDeposit.value : this.isDeposit,
       initialBalance: data.initialBalance.present
           ? data.initialBalance.value
           : this.initialBalance,
@@ -394,6 +429,7 @@ class Account extends DataClass implements Insertable<Account> {
           ..write('type: $type, ')
           ..write('currency: $currency, ')
           ..write('isNoWithdrawal: $isNoWithdrawal, ')
+          ..write('isDeposit: $isDeposit, ')
           ..write('initialBalance: $initialBalance, ')
           ..write('currentBalance: $currentBalance, ')
           ..write('isActive: $isActive, ')
@@ -409,6 +445,7 @@ class Account extends DataClass implements Insertable<Account> {
     type,
     currency,
     isNoWithdrawal,
+    isDeposit,
     initialBalance,
     currentBalance,
     isActive,
@@ -423,6 +460,7 @@ class Account extends DataClass implements Insertable<Account> {
           other.type == this.type &&
           other.currency == this.currency &&
           other.isNoWithdrawal == this.isNoWithdrawal &&
+          other.isDeposit == this.isDeposit &&
           other.initialBalance == this.initialBalance &&
           other.currentBalance == this.currentBalance &&
           other.isActive == this.isActive &&
@@ -435,6 +473,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
   final Value<String> type;
   final Value<String> currency;
   final Value<bool> isNoWithdrawal;
+  final Value<bool> isDeposit;
   final Value<int> initialBalance;
   final Value<int> currentBalance;
   final Value<bool> isActive;
@@ -445,6 +484,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     this.type = const Value.absent(),
     this.currency = const Value.absent(),
     this.isNoWithdrawal = const Value.absent(),
+    this.isDeposit = const Value.absent(),
     this.initialBalance = const Value.absent(),
     this.currentBalance = const Value.absent(),
     this.isActive = const Value.absent(),
@@ -456,6 +496,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     this.type = const Value.absent(),
     this.currency = const Value.absent(),
     this.isNoWithdrawal = const Value.absent(),
+    this.isDeposit = const Value.absent(),
     this.initialBalance = const Value.absent(),
     this.currentBalance = const Value.absent(),
     this.isActive = const Value.absent(),
@@ -467,6 +508,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     Expression<String>? type,
     Expression<String>? currency,
     Expression<bool>? isNoWithdrawal,
+    Expression<bool>? isDeposit,
     Expression<int>? initialBalance,
     Expression<int>? currentBalance,
     Expression<bool>? isActive,
@@ -478,6 +520,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
       if (type != null) 'type': type,
       if (currency != null) 'currency': currency,
       if (isNoWithdrawal != null) 'is_no_withdrawal': isNoWithdrawal,
+      if (isDeposit != null) 'is_deposit': isDeposit,
       if (initialBalance != null) 'initial_balance': initialBalance,
       if (currentBalance != null) 'current_balance': currentBalance,
       if (isActive != null) 'is_active': isActive,
@@ -491,6 +534,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     Value<String>? type,
     Value<String>? currency,
     Value<bool>? isNoWithdrawal,
+    Value<bool>? isDeposit,
     Value<int>? initialBalance,
     Value<int>? currentBalance,
     Value<bool>? isActive,
@@ -502,6 +546,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
       type: type ?? this.type,
       currency: currency ?? this.currency,
       isNoWithdrawal: isNoWithdrawal ?? this.isNoWithdrawal,
+      isDeposit: isDeposit ?? this.isDeposit,
       initialBalance: initialBalance ?? this.initialBalance,
       currentBalance: currentBalance ?? this.currentBalance,
       isActive: isActive ?? this.isActive,
@@ -527,6 +572,9 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     if (isNoWithdrawal.present) {
       map['is_no_withdrawal'] = Variable<bool>(isNoWithdrawal.value);
     }
+    if (isDeposit.present) {
+      map['is_deposit'] = Variable<bool>(isDeposit.value);
+    }
     if (initialBalance.present) {
       map['initial_balance'] = Variable<int>(initialBalance.value);
     }
@@ -550,6 +598,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
           ..write('type: $type, ')
           ..write('currency: $currency, ')
           ..write('isNoWithdrawal: $isNoWithdrawal, ')
+          ..write('isDeposit: $isDeposit, ')
           ..write('initialBalance: $initialBalance, ')
           ..write('currentBalance: $currentBalance, ')
           ..write('isActive: $isActive, ')
@@ -650,6 +699,21 @@ class $CategoriesTable extends Categories
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _isHiddenMeta = const VerificationMeta(
+    'isHidden',
+  );
+  @override
+  late final GeneratedColumn<bool> isHidden = GeneratedColumn<bool>(
+    'is_hidden',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_hidden" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -659,6 +723,7 @@ class $CategoriesTable extends Categories
     color,
     isSystem,
     isArchived,
+    isHidden,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -715,6 +780,12 @@ class $CategoriesTable extends Categories
         isArchived.isAcceptableOrUnknown(data['is_archived']!, _isArchivedMeta),
       );
     }
+    if (data.containsKey('is_hidden')) {
+      context.handle(
+        _isHiddenMeta,
+        isHidden.isAcceptableOrUnknown(data['is_hidden']!, _isHiddenMeta),
+      );
+    }
     return context;
   }
 
@@ -752,6 +823,10 @@ class $CategoriesTable extends Categories
         DriftSqlType.bool,
         data['${effectivePrefix}is_archived'],
       )!,
+      isHidden: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_hidden'],
+      )!,
     );
   }
 
@@ -769,6 +844,7 @@ class Category extends DataClass implements Insertable<Category> {
   final int color;
   final bool isSystem;
   final bool isArchived;
+  final bool isHidden;
   const Category({
     required this.id,
     required this.name,
@@ -777,6 +853,7 @@ class Category extends DataClass implements Insertable<Category> {
     required this.color,
     required this.isSystem,
     required this.isArchived,
+    required this.isHidden,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -788,6 +865,7 @@ class Category extends DataClass implements Insertable<Category> {
     map['color'] = Variable<int>(color);
     map['is_system'] = Variable<bool>(isSystem);
     map['is_archived'] = Variable<bool>(isArchived);
+    map['is_hidden'] = Variable<bool>(isHidden);
     return map;
   }
 
@@ -800,6 +878,7 @@ class Category extends DataClass implements Insertable<Category> {
       color: Value(color),
       isSystem: Value(isSystem),
       isArchived: Value(isArchived),
+      isHidden: Value(isHidden),
     );
   }
 
@@ -816,6 +895,7 @@ class Category extends DataClass implements Insertable<Category> {
       color: serializer.fromJson<int>(json['color']),
       isSystem: serializer.fromJson<bool>(json['isSystem']),
       isArchived: serializer.fromJson<bool>(json['isArchived']),
+      isHidden: serializer.fromJson<bool>(json['isHidden']),
     );
   }
   @override
@@ -829,6 +909,7 @@ class Category extends DataClass implements Insertable<Category> {
       'color': serializer.toJson<int>(color),
       'isSystem': serializer.toJson<bool>(isSystem),
       'isArchived': serializer.toJson<bool>(isArchived),
+      'isHidden': serializer.toJson<bool>(isHidden),
     };
   }
 
@@ -840,6 +921,7 @@ class Category extends DataClass implements Insertable<Category> {
     int? color,
     bool? isSystem,
     bool? isArchived,
+    bool? isHidden,
   }) => Category(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -848,6 +930,7 @@ class Category extends DataClass implements Insertable<Category> {
     color: color ?? this.color,
     isSystem: isSystem ?? this.isSystem,
     isArchived: isArchived ?? this.isArchived,
+    isHidden: isHidden ?? this.isHidden,
   );
   Category copyWithCompanion(CategoriesCompanion data) {
     return Category(
@@ -860,6 +943,7 @@ class Category extends DataClass implements Insertable<Category> {
       isArchived: data.isArchived.present
           ? data.isArchived.value
           : this.isArchived,
+      isHidden: data.isHidden.present ? data.isHidden.value : this.isHidden,
     );
   }
 
@@ -872,14 +956,15 @@ class Category extends DataClass implements Insertable<Category> {
           ..write('icon: $icon, ')
           ..write('color: $color, ')
           ..write('isSystem: $isSystem, ')
-          ..write('isArchived: $isArchived')
+          ..write('isArchived: $isArchived, ')
+          ..write('isHidden: $isHidden')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode =>
-      Object.hash(id, name, type, icon, color, isSystem, isArchived);
+      Object.hash(id, name, type, icon, color, isSystem, isArchived, isHidden);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -890,7 +975,8 @@ class Category extends DataClass implements Insertable<Category> {
           other.icon == this.icon &&
           other.color == this.color &&
           other.isSystem == this.isSystem &&
-          other.isArchived == this.isArchived);
+          other.isArchived == this.isArchived &&
+          other.isHidden == this.isHidden);
 }
 
 class CategoriesCompanion extends UpdateCompanion<Category> {
@@ -901,6 +987,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
   final Value<int> color;
   final Value<bool> isSystem;
   final Value<bool> isArchived;
+  final Value<bool> isHidden;
   const CategoriesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -909,6 +996,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     this.color = const Value.absent(),
     this.isSystem = const Value.absent(),
     this.isArchived = const Value.absent(),
+    this.isHidden = const Value.absent(),
   });
   CategoriesCompanion.insert({
     this.id = const Value.absent(),
@@ -918,6 +1006,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     this.color = const Value.absent(),
     this.isSystem = const Value.absent(),
     this.isArchived = const Value.absent(),
+    this.isHidden = const Value.absent(),
   }) : name = Value(name),
        type = Value(type);
   static Insertable<Category> custom({
@@ -928,6 +1017,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     Expression<int>? color,
     Expression<bool>? isSystem,
     Expression<bool>? isArchived,
+    Expression<bool>? isHidden,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -937,6 +1027,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
       if (color != null) 'color': color,
       if (isSystem != null) 'is_system': isSystem,
       if (isArchived != null) 'is_archived': isArchived,
+      if (isHidden != null) 'is_hidden': isHidden,
     });
   }
 
@@ -948,6 +1039,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     Value<int>? color,
     Value<bool>? isSystem,
     Value<bool>? isArchived,
+    Value<bool>? isHidden,
   }) {
     return CategoriesCompanion(
       id: id ?? this.id,
@@ -957,6 +1049,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
       color: color ?? this.color,
       isSystem: isSystem ?? this.isSystem,
       isArchived: isArchived ?? this.isArchived,
+      isHidden: isHidden ?? this.isHidden,
     );
   }
 
@@ -984,6 +1077,9 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     if (isArchived.present) {
       map['is_archived'] = Variable<bool>(isArchived.value);
     }
+    if (isHidden.present) {
+      map['is_hidden'] = Variable<bool>(isHidden.value);
+    }
     return map;
   }
 
@@ -996,7 +1092,8 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
           ..write('icon: $icon, ')
           ..write('color: $color, ')
           ..write('isSystem: $isSystem, ')
-          ..write('isArchived: $isArchived')
+          ..write('isArchived: $isArchived, ')
+          ..write('isHidden: $isHidden')
           ..write(')'))
         .toString();
   }
@@ -4357,6 +4454,7 @@ typedef $$AccountsTableCreateCompanionBuilder = AccountsCompanion Function({
   Value<String> type,
   Value<String> currency,
   Value<bool> isNoWithdrawal,
+  Value<bool> isDeposit,
   Value<int> initialBalance,
   Value<int> currentBalance,
   Value<bool> isActive,
@@ -4368,6 +4466,7 @@ typedef $$AccountsTableUpdateCompanionBuilder = AccountsCompanion Function({
   Value<String> type,
   Value<String> currency,
   Value<bool> isNoWithdrawal,
+  Value<bool> isDeposit,
   Value<int> initialBalance,
   Value<int> currentBalance,
   Value<bool> isActive,
@@ -4449,6 +4548,11 @@ class $$AccountsTableFilterComposer
 
   ColumnFilters<bool> get isNoWithdrawal => $composableBuilder(
     column: $table.isNoWithdrawal,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeposit => $composableBuilder(
+    column: $table.isDeposit,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4557,6 +4661,11 @@ class $$AccountsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isDeposit => $composableBuilder(
+    column: $table.isDeposit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get initialBalance => $composableBuilder(
     column: $table.initialBalance,
     builder: (column) => ColumnOrderings(column),
@@ -4603,6 +4712,9 @@ class $$AccountsTableAnnotationComposer
     column: $table.isNoWithdrawal,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get isDeposit =>
+      $composableBuilder(column: $table.isDeposit, builder: (column) => column);
 
   GeneratedColumn<int> get initialBalance => $composableBuilder(
     column: $table.initialBalance,
@@ -4708,6 +4820,7 @@ class $$AccountsTableTableManager
                 Value<String> type = const Value.absent(),
                 Value<String> currency = const Value.absent(),
                 Value<bool> isNoWithdrawal = const Value.absent(),
+                Value<bool> isDeposit = const Value.absent(),
                 Value<int> initialBalance = const Value.absent(),
                 Value<int> currentBalance = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
@@ -4718,6 +4831,7 @@ class $$AccountsTableTableManager
                 type: type,
                 currency: currency,
                 isNoWithdrawal: isNoWithdrawal,
+                isDeposit: isDeposit,
                 initialBalance: initialBalance,
                 currentBalance: currentBalance,
                 isActive: isActive,
@@ -4730,6 +4844,7 @@ class $$AccountsTableTableManager
                 Value<String> type = const Value.absent(),
                 Value<String> currency = const Value.absent(),
                 Value<bool> isNoWithdrawal = const Value.absent(),
+                Value<bool> isDeposit = const Value.absent(),
                 Value<int> initialBalance = const Value.absent(),
                 Value<int> currentBalance = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
@@ -4740,6 +4855,7 @@ class $$AccountsTableTableManager
                 type: type,
                 currency: currency,
                 isNoWithdrawal: isNoWithdrawal,
+                isDeposit: isDeposit,
                 initialBalance: initialBalance,
                 currentBalance: currentBalance,
                 isActive: isActive,
@@ -4837,6 +4953,7 @@ typedef $$CategoriesTableCreateCompanionBuilder = CategoriesCompanion Function({
   Value<int> color,
   Value<bool> isSystem,
   Value<bool> isArchived,
+  Value<bool> isHidden,
 });
 typedef $$CategoriesTableUpdateCompanionBuilder = CategoriesCompanion Function({
   Value<int> id,
@@ -4846,6 +4963,7 @@ typedef $$CategoriesTableUpdateCompanionBuilder = CategoriesCompanion Function({
   Value<int> color,
   Value<bool> isSystem,
   Value<bool> isArchived,
+  Value<bool> isHidden,
 });
 
 final class $$CategoriesTableReferences
@@ -4933,6 +5051,11 @@ class $$CategoriesTableFilterComposer
 
   ColumnFilters<bool> get isArchived => $composableBuilder(
     column: $table.isArchived,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isHidden => $composableBuilder(
+    column: $table.isHidden,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5030,6 +5153,11 @@ class $$CategoriesTableOrderingComposer
     column: $table.isArchived,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get isHidden => $composableBuilder(
+    column: $table.isHidden,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$CategoriesTableAnnotationComposer
@@ -5063,6 +5191,9 @@ class $$CategoriesTableAnnotationComposer
     column: $table.isArchived,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get isHidden =>
+      $composableBuilder(column: $table.isHidden, builder: (column) => column);
 
   Expression<T> transactionsRefs<T extends Object>(
     Expression<T> Function($$TransactionsTableAnnotationComposer a) f,
@@ -5154,6 +5285,7 @@ class $$CategoriesTableTableManager
                 Value<int> color = const Value.absent(),
                 Value<bool> isSystem = const Value.absent(),
                 Value<bool> isArchived = const Value.absent(),
+                Value<bool> isHidden = const Value.absent(),
               }) => CategoriesCompanion(
                 id: id,
                 name: name,
@@ -5162,6 +5294,7 @@ class $$CategoriesTableTableManager
                 color: color,
                 isSystem: isSystem,
                 isArchived: isArchived,
+                isHidden: isHidden,
               ),
           createCompanionCallback:
               ({
@@ -5172,6 +5305,7 @@ class $$CategoriesTableTableManager
                 Value<int> color = const Value.absent(),
                 Value<bool> isSystem = const Value.absent(),
                 Value<bool> isArchived = const Value.absent(),
+                Value<bool> isHidden = const Value.absent(),
               }) => CategoriesCompanion.insert(
                 id: id,
                 name: name,
@@ -5180,6 +5314,7 @@ class $$CategoriesTableTableManager
                 color: color,
                 isSystem: isSystem,
                 isArchived: isArchived,
+                isHidden: isHidden,
               ),
           withReferenceMapper: (p0) => p0
               .map(
