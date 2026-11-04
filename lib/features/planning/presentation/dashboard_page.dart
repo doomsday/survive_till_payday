@@ -14,18 +14,24 @@ final _money = NumberFormat.currency(
 final _date = DateFormat('d MMM', 'ru');
 final _longDate = DateFormat('d MMMM y', 'ru');
 
-class DashboardPage extends ConsumerWidget {
+class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final finance = ref.watch(financeSnapshotProvider);
-    final dashboard = ref.watch(dashboardDataProvider);
-    if (finance.isLoading || dashboard.isLoading) {
+  ConsumerState<DashboardPage> createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends ConsumerState<DashboardPage> {
+  late DateTime _selectedDate = calendarDate(DateTime.now());
+
+  @override
+  Widget build(BuildContext context) {
+    final dashboardDay = ref.watch(dashboardDayAtDateProvider(_selectedDate));
+    if (dashboardDay.isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    if (finance.hasError || dashboard.hasError) {
-      final error = finance.error ?? dashboard.error;
+    if (dashboardDay.hasError) {
+      final error = dashboardDay.error;
       return Scaffold(
         appBar: AppBar(title: const Text('Обзор')),
         body: Center(
@@ -36,21 +42,32 @@ class DashboardPage extends ConsumerWidget {
         ),
       );
     }
-    final snapshot = finance.value!;
-    final data = dashboard.value!;
+    final day = dashboardDay.value!;
+    final snapshot = day.finance;
+    final data = day.dashboard;
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
         title: Row(
           children: [
             const Text('Обзор'),
-            const SizedBox(width: 12),
-            Flexible(
-              child: Text(
-                DateFormat('EEEE, d MMMM', 'ru').format(DateTime.now()),
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+            const SizedBox(width: 4),
+            Expanded(
+              child: Tooltip(
+                message: 'Выбрать дату',
+                child: TextButton.icon(
+                  onPressed: _selectDate,
+                  icon: const Icon(Icons.calendar_month_outlined),
+                  label: Text(
+                    DateFormat('EEEE, d MMMM', 'ru').format(_selectedDate),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  style: TextButton.styleFrom(
+                    foregroundColor: theme.colorScheme.onSurfaceVariant,
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  ),
                 ),
               ),
             ),
@@ -59,12 +76,8 @@ class DashboardPage extends ConsumerWidget {
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          ref.invalidate(financeSnapshotProvider);
-          ref.invalidate(dashboardDataProvider);
-          await Future.wait([
-            ref.read(financeSnapshotProvider.future),
-            ref.read(dashboardDataProvider.future),
-          ]);
+          ref.invalidate(dashboardDayAtDateProvider(_selectedDate));
+          await ref.read(dashboardDayAtDateProvider(_selectedDate).future);
         },
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -75,7 +88,7 @@ class DashboardPage extends ConsumerWidget {
             _FinanceSummary(finance: snapshot),
             const SizedBox(height: 20),
             _SectionTitle(
-              title: 'За ${DateFormat('LLLL', 'ru').format(DateTime.now())}',
+              title: 'За ${DateFormat('LLLL', 'ru').format(_selectedDate)}',
             ),
             _MonthlySummary(data: data),
             const SizedBox(height: 20),
@@ -86,7 +99,10 @@ class DashboardPage extends ConsumerWidget {
                 child: const Text('Все'),
               ),
             ),
-            _UpcomingPayments(payments: data.upcomingPayments),
+            _UpcomingPayments(
+              payments: data.upcomingPayments,
+              asOfDate: _selectedDate,
+            ),
             const SizedBox(height: 20),
             _SectionTitle(title: 'Расходы по категориям'),
             _CategoryBreakdown(categories: data.categorySpending),
@@ -111,7 +127,7 @@ class DashboardPage extends ConsumerWidget {
               ),
             const SizedBox(height: 20),
             FilledButton.icon(
-              onPressed: () => _quickExpense(context, ref),
+              onPressed: () => _quickExpense(context, ref, day),
               icon: const Icon(Icons.add),
               label: const Text('Добавить расход'),
               style: FilledButton.styleFrom(
@@ -124,17 +140,48 @@ class DashboardPage extends ConsumerWidget {
     );
   }
 
-  Future<void> _quickExpense(BuildContext context, WidgetRef ref) async {
+  Future<void> _selectDate() async {
+    final today = calendarDate(DateTime.now());
+    late final DateTime firstAvailableDate;
+    try {
+      firstAvailableDate = calendarDate(
+        await ref
+            .read(financialPlanningServiceProvider)
+            .getHistoryFirstAvailableDate(),
+      );
+    } catch (error) {
+      if (mounted) {
+        _showMessage(context, 'Не удалось открыть календарь: $error');
+      }
+      return;
+    }
+    if (!mounted) return;
+    final selectedDate = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: firstAvailableDate.isAfter(today) ? today : firstAvailableDate,
+      lastDate: today,
+      locale: const Locale('ru'),
+    );
+    if (selectedDate != null && mounted) {
+      setState(() => _selectedDate = calendarDate(selectedDate));
+    }
+  }
+
+  Future<void> _quickExpense(
+    BuildContext context,
+    WidgetRef ref,
+    DashboardDay day,
+  ) async {
     final service = ref.read(financialPlanningServiceProvider);
     try {
-      final accounts = await service.getActiveAccounts();
+      final accounts = day.accounts;
       if (!context.mounted) return;
       if (accounts.isEmpty) {
         _showMessage(context, 'Сначала добавьте активный счет');
         return;
       }
-      final categories = await service.getExpenseCategories();
-      if (!context.mounted) return;
+      final categories = day.expenseCategories;
       final amount = TextEditingController();
       final description = TextEditingController();
       var accountId = accounts.first.id;
@@ -223,8 +270,9 @@ class DashboardPage extends ConsumerWidget {
             amount: parsedAmount,
             description: description.text,
             categoryId: categoryId,
+            date: _selectedDate,
           );
-          ref.invalidate(financeSnapshotProvider);
+          ref.invalidate(dashboardDayAtDateProvider(_selectedDate));
         }
       }
       amount.dispose();
@@ -389,8 +437,9 @@ class _MonthlyMetric extends StatelessWidget {
 }
 
 class _UpcomingPayments extends StatelessWidget {
-  const _UpcomingPayments({required this.payments});
+  const _UpcomingPayments({required this.payments, required this.asOfDate});
   final List<DashboardPayment> payments;
+  final DateTime asOfDate;
 
   @override
   Widget build(BuildContext context) {
@@ -402,7 +451,7 @@ class _UpcomingPayments extends StatelessWidget {
         children: [
           for (var index = 0; index < payments.length; index++) ...[
             if (index > 0) const Divider(height: 1, indent: 64),
-            _PaymentRow(payment: payments[index]),
+            _PaymentRow(payment: payments[index], asOfDate: asOfDate),
           ],
         ],
       ),
@@ -411,15 +460,15 @@ class _UpcomingPayments extends StatelessWidget {
 }
 
 class _PaymentRow extends StatelessWidget {
-  const _PaymentRow({required this.payment});
+  const _PaymentRow({required this.payment, required this.asOfDate});
   final DashboardPayment payment;
+  final DateTime asOfDate;
 
   @override
   Widget build(BuildContext context) {
     final item = payment.occurrence;
     final dueDate = calendarDate(item.dueDate);
-    final today = calendarDate(DateTime.now());
-    final daysLeft = dueDate.difference(today).inDays;
+    final daysLeft = dueDate.difference(asOfDate).inDays;
     final overdue = item.status == 'OVERDUE' || daysLeft < 0;
     final dueSoon = !overdue && daysLeft <= 3;
     final color = overdue || dueSoon

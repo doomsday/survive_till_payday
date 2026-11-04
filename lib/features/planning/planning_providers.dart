@@ -18,6 +18,13 @@ final dashboardDataProvider = StreamProvider<DashboardData>((ref) {
   return ref.watch(financialPlanningServiceProvider).watchDashboardData();
 });
 
+final dashboardDayAtDateProvider = StreamProvider.autoDispose
+    .family<DashboardDay, DateTime>((ref, date) {
+      return ref
+          .watch(financialPlanningServiceProvider)
+          .watchDashboardDay(date: date);
+    });
+
 final paymentOccurrencesProvider = StreamProvider<List<PaymentOccurrence>>(
   (ref) => ref.watch(financialPlanningServiceProvider).watchOccurrences(),
 );

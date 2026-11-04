@@ -737,4 +737,80 @@ void main() {
       expect(data.remainingTransactionsThisMonth, 2);
     },
   );
+
+  test('dashboard history restores edited and deleted rows and excludes later entries', () async {
+    await database.customSelect('SELECT 1').get();
+    final selectedDate = calendarDate(
+      DateTime.now().subtract(const Duration(days: 1)),
+    );
+    await (database.update(
+      database.databaseHistoryMetadata,
+    )..where((row) => row.id.equals(1))).write(
+      DatabaseHistoryMetadataCompanion(
+        firstAvailableDate: Value(selectedDate.millisecondsSinceEpoch),
+      ),
+    );
+    final historyBeforeChanges = await database
+        .select(database.databaseHistoryChanges)
+        .get();
+    final lastBaselineId = historyBeforeChanges.last.id;
+
+    await planning.setReserve(5000, enabled: true);
+    final accountId = await addAccount();
+    final repository = TransactionsRepository(database);
+    final transactionId = await repository.addTransaction(
+      type: 'EXPENSE',
+      accountId: accountId,
+      amount: 1000,
+      date: selectedDate,
+      description: 'На выбранный день',
+    );
+    final initialChangeIds = await (database.select(
+      database.databaseHistoryChanges,
+    )..where((row) => row.id.isBiggerThanValue(lastBaselineId))).get();
+    await (database.update(
+      database.databaseHistoryChanges,
+    )..where((row) => row.id.isBiggerThanValue(lastBaselineId))).write(
+      DatabaseHistoryChangesCompanion(
+        recordedAt: Value(
+          selectedDate.add(const Duration(hours: 12)).millisecondsSinceEpoch,
+        ),
+      ),
+    );
+    expect(initialChangeIds, isNotEmpty);
+
+    await repository.updateTransaction(
+      id: transactionId,
+      type: 'EXPENSE',
+      accountId: accountId,
+      amount: 4000,
+      date: selectedDate.add(const Duration(days: 2)),
+      description: 'Исправлено позже',
+      isExcludedFromStatistics: false,
+    );
+    await repository.deleteTransaction(transactionId);
+    await repository.addTransaction(
+      type: 'EXPENSE',
+      accountId: accountId,
+      amount: 500,
+      date: selectedDate,
+      description: 'Внесено задним числом позже',
+    );
+    await planning.setReserve(9000, enabled: true);
+
+    final historical = await planning.getDashboardDay(selectedDate);
+
+    expect(historical.finance.currentBalance, 99000);
+    expect(historical.finance.reserve, 5000);
+    expect(historical.dashboard.monthExpense, 1000);
+    expect(historical.dashboard.recentTransactions, hasLength(1));
+    expect(
+      historical.dashboard.recentTransactions.single.transaction.amount,
+      1000,
+    );
+    expect(
+      historical.dashboard.recentTransactions.single.transaction.description,
+      'На выбранный день',
+    );
+  });
 }

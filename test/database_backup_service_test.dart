@@ -47,6 +47,10 @@ void main() {
               .revision;
       expect(changedRevision, greaterThan(startRevision));
 
+      final originalHistoryCount = await database
+          .select(database.databaseHistoryChanges)
+          .get()
+          .then((rows) => rows.length);
       final snapshot = await service.createSnapshot();
       expect(await service.inspectImport(snapshot), isA<BackupComparison>());
       await (database.update(database.accounts)
@@ -66,6 +70,13 @@ void main() {
         isTrue,
       );
       expect(await service.localBackups(), hasLength(1));
+      expect(
+        await database
+            .select(database.databaseHistoryChanges)
+            .get()
+            .then((rows) => rows.length),
+        originalHistoryCount,
+      );
       expect(
         (await database.select(database.databaseMetadata).getSingle()).revision,
         greaterThan(changedRevision),
@@ -253,6 +264,16 @@ void main() {
 
       final oldDatabase = sqlite.sqlite3.open(oldSnapshotFile.path);
       try {
+        final historyTriggers = oldDatabase
+            .select(
+              "SELECT name FROM sqlite_master WHERE type = 'trigger' "
+              "AND name LIKE 'history_%'",
+            )
+            .map((row) => row['name']! as String)
+            .toList();
+        for (final trigger in historyTriggers) {
+          oldDatabase.execute('DROP TRIGGER "$trigger"');
+        }
         oldDatabase.execute(
           'ALTER TABLE accounts DROP COLUMN is_no_withdrawal',
         );

@@ -146,6 +146,16 @@ void main() {
                 startDate: DateTime(2026, 11, 3),
               ),
             );
+        final triggers = await databaseUnderTest
+            .customSelect(
+              "SELECT name FROM sqlite_master WHERE type = 'trigger'",
+            )
+            .get();
+        for (final trigger in triggers) {
+          await databaseUnderTest.customStatement(
+            'DROP TRIGGER "${trigger.data['name']}"',
+          );
+        }
         await databaseUnderTest.customStatement(
           'ALTER TABLE recurring_payments DROP COLUMN is_auto_pay',
         );

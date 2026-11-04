@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:drift/drift.dart';
 
 import '../../../core/database/app_database.dart';
+import '../../../core/database/history_database_factory.dart';
 
 DateTime calendarDate(DateTime date) =>
     DateTime(date.year, date.month, date.day);
@@ -146,6 +148,20 @@ class DashboardData {
   final List<DashboardPayment> upcomingPayments;
 }
 
+class DashboardDay {
+  const DashboardDay({
+    required this.finance,
+    required this.dashboard,
+    required this.accounts,
+    required this.expenseCategories,
+  });
+
+  final FinanceSnapshot finance;
+  final DashboardData dashboard;
+  final List<Account> accounts;
+  final List<Category> expenseCategories;
+}
+
 FinanceSnapshot calculateFinanceSnapshot({
   required int currentBalance,
   required int expectedIncome,
@@ -213,6 +229,175 @@ class FinancialPlanningService {
   static const _paydayKey = 'next_payday';
   static const _reserveEnabledKey = 'financial_reserve_enabled';
 
+  Future<DateTime> getHistoryFirstAvailableDate() =>
+      db.getHistoryFirstAvailableDate();
+
+  Stream<DashboardDay> watchDashboardDay({required DateTime date}) async* {
+    final selectedDate = calendarDate(date);
+    final isCurrentDate = selectedDate == calendarDate(DateTime.now());
+    if (isCurrentDate) {
+      await generateOccurrences(now: selectedDate);
+    }
+    final source = db
+        .customSelect(
+          'SELECT 1',
+          readsFrom: {
+            db.accounts,
+            db.categories,
+            db.transactions,
+            db.recurringPayments,
+            db.paymentOccurrences,
+            db.incomeSchedules,
+            db.appSettings,
+            db.databaseHistoryChanges,
+          },
+        )
+        .watch()
+        .asyncMap((_) => getDashboardDay(selectedDate));
+    if (!isCurrentDate) {
+      yield* source;
+      return;
+    }
+    yield* _watchWithPeriodicRefresh(
+      source,
+      () => generateOccurrences(now: selectedDate),
+    );
+  }
+
+  Future<DashboardDay> getDashboardDay(DateTime date) async {
+    final selectedDate = calendarDate(date);
+    if (!selectedDate.isBefore(calendarDate(DateTime.now()))) {
+      return DashboardDay(
+        finance: await getSnapshot(now: selectedDate),
+        dashboard: await getDashboardData(now: selectedDate),
+        accounts: await getActiveAccounts(),
+        expenseCategories: await getExpenseCategories(),
+      );
+    }
+
+    final firstAvailableDate = calendarDate(
+      await db.getHistoryFirstAvailableDate(),
+    );
+    if (selectedDate.isBefore(firstAvailableDate)) {
+      throw StateError(
+        'История доступна начиная с ${firstAvailableDate.toIso8601String()}.',
+      );
+    }
+
+    final historicalDatabase = await createHistoryDatabase();
+    try {
+      await historicalDatabase.customSelect('SELECT 1').get();
+      await _restoreStateAt(historicalDatabase, selectedDate);
+      final historicalService = FinancialPlanningService(historicalDatabase);
+      await historicalService.generateOccurrences(now: selectedDate);
+      return DashboardDay(
+        finance: await historicalService.getSnapshot(now: selectedDate),
+        dashboard: await historicalService.getDashboardData(now: selectedDate),
+        accounts: await historicalService.getActiveAccounts(),
+        expenseCategories: await historicalService.getExpenseCategories(),
+      );
+    } finally {
+      await historicalDatabase.close();
+    }
+  }
+
+  Future<void> _restoreStateAt(
+    AppDatabase historicalDatabase,
+    DateTime selectedDate,
+  ) async {
+    final rowsByTable = await db.transaction(() async {
+      final rowsByTable = <String, Map<String, Map<String, Object?>>>{};
+      for (final table in AppDatabase.historyTables.keys) {
+        final rows = await db.customSelect('SELECT * FROM "$table"').get();
+        rowsByTable[table] = {
+          for (final row in rows)
+            (row.data['id'] ?? row.data['key']).toString():
+                Map<String, Object?>.from(row.data),
+        };
+      }
+
+      final cutoff = selectedDate
+          .add(const Duration(days: 1))
+          .millisecondsSinceEpoch;
+      final changes =
+          await (db.select(db.databaseHistoryChanges)
+                ..where((row) => row.recordedAt.isBiggerOrEqualValue(cutoff))
+                ..orderBy([(row) => OrderingTerm.desc(row.id)]))
+              .get();
+      for (final change in changes) {
+        final rows = rowsByTable[change.entityTable];
+        if (rows == null) {
+          throw StateError(
+            'Неизвестная таблица в истории базы: ${change.entityTable}.',
+          );
+        }
+        if (change.operation == 'INSERT') {
+          rows.remove(change.rowId);
+          continue;
+        }
+        if (change.operation == 'SNAPSHOT') {
+          final snapshotJson = change.afterJson;
+          if (snapshotJson == null) {
+            throw StateError(
+              'В истории отсутствует снимок ${change.entityTable}:${change.rowId}.',
+            );
+          }
+          rows[change.rowId] = Map<String, Object?>.from(
+            jsonDecode(snapshotJson) as Map<String, dynamic>,
+          );
+          continue;
+        }
+        final previousJson = change.beforeJson;
+        if (previousJson == null ||
+            (change.operation != 'UPDATE' && change.operation != 'DELETE')) {
+          throw StateError(
+            'Некорректное событие истории ${change.entityTable}:${change.rowId}.',
+          );
+        }
+        rows[change.rowId] = Map<String, Object?>.from(
+          jsonDecode(previousJson) as Map<String, dynamic>,
+        );
+      }
+      return rowsByTable;
+    });
+
+    await historicalDatabase.transaction(() async {
+      for (final table in const [
+        'payment_occurrences',
+        'transactions',
+        'recurring_payments',
+        'income_schedules',
+        'accounts',
+        'categories',
+        'app_settings',
+      ]) {
+        await historicalDatabase.customStatement('DELETE FROM "$table"');
+      }
+      for (final table in const [
+        'accounts',
+        'categories',
+        'recurring_payments',
+        'transactions',
+        'payment_occurrences',
+        'income_schedules',
+        'app_settings',
+      ]) {
+        final columns = AppDatabase.historyTables[table]!;
+        for (final row in rowsByTable[table]!.values) {
+          await historicalDatabase.customStatement(
+            'INSERT INTO "$table" '
+            '(${columns.map((column) => '"$column"').join(', ')}) '
+            'VALUES (${List.filled(columns.length, '?').join(', ')})',
+            columns.map((column) => row[column]).toList(),
+          );
+        }
+      }
+      await historicalDatabase
+          .delete(historicalDatabase.databaseHistoryChanges)
+          .go();
+    });
+  }
+
   Stream<List<PaymentOccurrence>> watchOccurrences() async* {
     await generateOccurrences();
     yield* _watchWithPeriodicRefresh(
@@ -235,23 +420,30 @@ class FinancialPlanningService {
     db.incomeSchedules,
   )..orderBy([(row) => OrderingTerm.asc(row.expectedDate)])).watch();
 
-  Stream<FinanceSnapshot> watchSnapshot() async* {
-    await generateOccurrences();
+  Stream<FinanceSnapshot> watchSnapshot({DateTime? now}) async* {
+    final today = calendarDate(now ?? DateTime.now());
+    final isCurrentDate = today == calendarDate(DateTime.now());
+    if (isCurrentDate) await generateOccurrences(now: today);
+    final source = db
+        .customSelect(
+          'SELECT 1',
+          readsFrom: {
+            db.accounts,
+            db.transactions,
+            db.paymentOccurrences,
+            db.incomeSchedules,
+            db.appSettings,
+          },
+        )
+        .watch()
+        .asyncMap((_) => getSnapshot(now: today));
+    if (!isCurrentDate) {
+      yield* source;
+      return;
+    }
     yield* _watchWithPeriodicRefresh(
-      db
-          .customSelect(
-            'SELECT 1',
-            readsFrom: {
-              db.accounts,
-              db.transactions,
-              db.paymentOccurrences,
-              db.incomeSchedules,
-              db.appSettings,
-            },
-          )
-          .watch()
-          .asyncMap((_) => getSnapshot()),
-      generateOccurrences,
+      source,
+      () => generateOccurrences(now: today),
     );
   }
 
@@ -293,7 +485,7 @@ class FinancialPlanningService {
     return controller.stream;
   }
 
-  Stream<DashboardData> watchDashboardData() async* {
+  Stream<DashboardData> watchDashboardData({DateTime? now}) async* {
     yield* db
         .customSelect(
           'SELECT 1',
@@ -306,13 +498,14 @@ class FinancialPlanningService {
           },
         )
         .watch()
-        .asyncMap((_) => getDashboardData());
+        .asyncMap((_) => getDashboardData(now: now));
   }
 
   Future<DashboardData> getDashboardData({DateTime? now}) async {
     final today = calendarDate(now ?? DateTime.now());
     final monthStart = DateTime(today.year, today.month);
     final nextMonth = DateTime(today.year, today.month + 1);
+    final dayAfterToday = today.add(const Duration(days: 1));
     final noWithdrawalAccountIds =
         (await (db.select(
               db.accounts,
@@ -323,6 +516,7 @@ class FinancialPlanningService {
         await (db.select(db.transactions)..where(
               (row) =>
                   row.transactionDate.isBiggerOrEqualValue(monthStart) &
+                  row.transactionDate.isSmallerThanValue(dayAfterToday) &
                   row.transactionDate.isSmallerThanValue(nextMonth) &
                   row.isExcludedFromStatistics.equals(false) &
                   (row.type.isIn(['INCOME', 'EXPENSE']) |
@@ -368,8 +562,9 @@ class FinancialPlanningService {
         await (db.select(db.transactions)
               ..where(
                 (row) =>
-                    row.type.isNotValue('TRANSFER') |
-                    row.transferGroupId.equalsExp(row.id),
+                    row.transactionDate.isSmallerThanValue(dayAfterToday) &
+                    (row.type.isNotValue('TRANSFER') |
+                        row.transferGroupId.equalsExp(row.id)),
               )
               ..orderBy([
                 (row) => OrderingTerm.desc(row.transactionDate),
@@ -393,6 +588,9 @@ class FinancialPlanningService {
               ..where(
                 db.transactions.transactionDate.isBiggerOrEqualValue(
                       monthStart,
+                    ) &
+                    db.transactions.transactionDate.isSmallerThanValue(
+                      dayAfterToday,
                     ) &
                     db.transactions.transactionDate.isSmallerThanValue(
                       nextMonth,
@@ -448,7 +646,8 @@ class FinancialPlanningService {
 
   Future<FinanceSnapshot> getSnapshot({DateTime? now}) async {
     final today = calendarDate(now ?? DateTime.now());
-    await generateOccurrences(now: today);
+    final isCurrentDate = today == calendarDate(DateTime.now());
+    if (isCurrentDate) await generateOccurrences(now: today);
     final activeAccounts = await (db.select(
       db.accounts,
     )..where((account) => account.isActive)).get();

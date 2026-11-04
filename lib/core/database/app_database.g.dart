@@ -4466,6 +4466,687 @@ class DatabaseMetadataCompanion extends UpdateCompanion<DatabaseMetadataData> {
   }
 }
 
+class $DatabaseHistoryChangesTable extends DatabaseHistoryChanges
+    with TableInfo<$DatabaseHistoryChangesTable, DatabaseHistoryChange> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DatabaseHistoryChangesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _entityTableMeta = const VerificationMeta(
+    'entityTable',
+  );
+  @override
+  late final GeneratedColumn<String> entityTable = GeneratedColumn<String>(
+    'entity_table',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _rowIdMeta = const VerificationMeta('rowId');
+  @override
+  late final GeneratedColumn<String> rowId = GeneratedColumn<String>(
+    'row_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _recordedAtMeta = const VerificationMeta(
+    'recordedAt',
+  );
+  @override
+  late final GeneratedColumn<int> recordedAt = GeneratedColumn<int>(
+    'recorded_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _operationMeta = const VerificationMeta(
+    'operation',
+  );
+  @override
+  late final GeneratedColumn<String> operation = GeneratedColumn<String>(
+    'operation',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _beforeJsonMeta = const VerificationMeta(
+    'beforeJson',
+  );
+  @override
+  late final GeneratedColumn<String> beforeJson = GeneratedColumn<String>(
+    'before_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _afterJsonMeta = const VerificationMeta(
+    'afterJson',
+  );
+  @override
+  late final GeneratedColumn<String> afterJson = GeneratedColumn<String>(
+    'after_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    entityTable,
+    rowId,
+    recordedAt,
+    operation,
+    beforeJson,
+    afterJson,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'database_history_changes';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<DatabaseHistoryChange> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('entity_table')) {
+      context.handle(
+        _entityTableMeta,
+        entityTable.isAcceptableOrUnknown(
+          data['entity_table']!,
+          _entityTableMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_entityTableMeta);
+    }
+    if (data.containsKey('row_id')) {
+      context.handle(
+        _rowIdMeta,
+        rowId.isAcceptableOrUnknown(data['row_id']!, _rowIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_rowIdMeta);
+    }
+    if (data.containsKey('recorded_at')) {
+      context.handle(
+        _recordedAtMeta,
+        recordedAt.isAcceptableOrUnknown(data['recorded_at']!, _recordedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_recordedAtMeta);
+    }
+    if (data.containsKey('operation')) {
+      context.handle(
+        _operationMeta,
+        operation.isAcceptableOrUnknown(data['operation']!, _operationMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_operationMeta);
+    }
+    if (data.containsKey('before_json')) {
+      context.handle(
+        _beforeJsonMeta,
+        beforeJson.isAcceptableOrUnknown(data['before_json']!, _beforeJsonMeta),
+      );
+    }
+    if (data.containsKey('after_json')) {
+      context.handle(
+        _afterJsonMeta,
+        afterJson.isAcceptableOrUnknown(data['after_json']!, _afterJsonMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  DatabaseHistoryChange map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DatabaseHistoryChange(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      entityTable: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity_table'],
+      )!,
+      rowId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}row_id'],
+      )!,
+      recordedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}recorded_at'],
+      )!,
+      operation: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}operation'],
+      )!,
+      beforeJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}before_json'],
+      ),
+      afterJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}after_json'],
+      ),
+    );
+  }
+
+  @override
+  $DatabaseHistoryChangesTable createAlias(String alias) {
+    return $DatabaseHistoryChangesTable(attachedDatabase, alias);
+  }
+}
+
+class DatabaseHistoryChange extends DataClass
+    implements Insertable<DatabaseHistoryChange> {
+  final int id;
+  final String entityTable;
+  final String rowId;
+  final int recordedAt;
+  final String operation;
+  final String? beforeJson;
+  final String? afterJson;
+  const DatabaseHistoryChange({
+    required this.id,
+    required this.entityTable,
+    required this.rowId,
+    required this.recordedAt,
+    required this.operation,
+    this.beforeJson,
+    this.afterJson,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['entity_table'] = Variable<String>(entityTable);
+    map['row_id'] = Variable<String>(rowId);
+    map['recorded_at'] = Variable<int>(recordedAt);
+    map['operation'] = Variable<String>(operation);
+    if (!nullToAbsent || beforeJson != null) {
+      map['before_json'] = Variable<String>(beforeJson);
+    }
+    if (!nullToAbsent || afterJson != null) {
+      map['after_json'] = Variable<String>(afterJson);
+    }
+    return map;
+  }
+
+  DatabaseHistoryChangesCompanion toCompanion(bool nullToAbsent) {
+    return DatabaseHistoryChangesCompanion(
+      id: Value(id),
+      entityTable: Value(entityTable),
+      rowId: Value(rowId),
+      recordedAt: Value(recordedAt),
+      operation: Value(operation),
+      beforeJson: beforeJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(beforeJson),
+      afterJson: afterJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(afterJson),
+    );
+  }
+
+  factory DatabaseHistoryChange.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DatabaseHistoryChange(
+      id: serializer.fromJson<int>(json['id']),
+      entityTable: serializer.fromJson<String>(json['entityTable']),
+      rowId: serializer.fromJson<String>(json['rowId']),
+      recordedAt: serializer.fromJson<int>(json['recordedAt']),
+      operation: serializer.fromJson<String>(json['operation']),
+      beforeJson: serializer.fromJson<String?>(json['beforeJson']),
+      afterJson: serializer.fromJson<String?>(json['afterJson']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'entityTable': serializer.toJson<String>(entityTable),
+      'rowId': serializer.toJson<String>(rowId),
+      'recordedAt': serializer.toJson<int>(recordedAt),
+      'operation': serializer.toJson<String>(operation),
+      'beforeJson': serializer.toJson<String?>(beforeJson),
+      'afterJson': serializer.toJson<String?>(afterJson),
+    };
+  }
+
+  DatabaseHistoryChange copyWith({
+    int? id,
+    String? entityTable,
+    String? rowId,
+    int? recordedAt,
+    String? operation,
+    Value<String?> beforeJson = const Value.absent(),
+    Value<String?> afterJson = const Value.absent(),
+  }) => DatabaseHistoryChange(
+    id: id ?? this.id,
+    entityTable: entityTable ?? this.entityTable,
+    rowId: rowId ?? this.rowId,
+    recordedAt: recordedAt ?? this.recordedAt,
+    operation: operation ?? this.operation,
+    beforeJson: beforeJson.present ? beforeJson.value : this.beforeJson,
+    afterJson: afterJson.present ? afterJson.value : this.afterJson,
+  );
+  DatabaseHistoryChange copyWithCompanion(
+    DatabaseHistoryChangesCompanion data,
+  ) {
+    return DatabaseHistoryChange(
+      id: data.id.present ? data.id.value : this.id,
+      entityTable: data.entityTable.present
+          ? data.entityTable.value
+          : this.entityTable,
+      rowId: data.rowId.present ? data.rowId.value : this.rowId,
+      recordedAt: data.recordedAt.present
+          ? data.recordedAt.value
+          : this.recordedAt,
+      operation: data.operation.present ? data.operation.value : this.operation,
+      beforeJson: data.beforeJson.present
+          ? data.beforeJson.value
+          : this.beforeJson,
+      afterJson: data.afterJson.present ? data.afterJson.value : this.afterJson,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DatabaseHistoryChange(')
+          ..write('id: $id, ')
+          ..write('entityTable: $entityTable, ')
+          ..write('rowId: $rowId, ')
+          ..write('recordedAt: $recordedAt, ')
+          ..write('operation: $operation, ')
+          ..write('beforeJson: $beforeJson, ')
+          ..write('afterJson: $afterJson')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    entityTable,
+    rowId,
+    recordedAt,
+    operation,
+    beforeJson,
+    afterJson,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DatabaseHistoryChange &&
+          other.id == this.id &&
+          other.entityTable == this.entityTable &&
+          other.rowId == this.rowId &&
+          other.recordedAt == this.recordedAt &&
+          other.operation == this.operation &&
+          other.beforeJson == this.beforeJson &&
+          other.afterJson == this.afterJson);
+}
+
+class DatabaseHistoryChangesCompanion
+    extends UpdateCompanion<DatabaseHistoryChange> {
+  final Value<int> id;
+  final Value<String> entityTable;
+  final Value<String> rowId;
+  final Value<int> recordedAt;
+  final Value<String> operation;
+  final Value<String?> beforeJson;
+  final Value<String?> afterJson;
+  const DatabaseHistoryChangesCompanion({
+    this.id = const Value.absent(),
+    this.entityTable = const Value.absent(),
+    this.rowId = const Value.absent(),
+    this.recordedAt = const Value.absent(),
+    this.operation = const Value.absent(),
+    this.beforeJson = const Value.absent(),
+    this.afterJson = const Value.absent(),
+  });
+  DatabaseHistoryChangesCompanion.insert({
+    this.id = const Value.absent(),
+    required String entityTable,
+    required String rowId,
+    required int recordedAt,
+    required String operation,
+    this.beforeJson = const Value.absent(),
+    this.afterJson = const Value.absent(),
+  }) : entityTable = Value(entityTable),
+       rowId = Value(rowId),
+       recordedAt = Value(recordedAt),
+       operation = Value(operation);
+  static Insertable<DatabaseHistoryChange> custom({
+    Expression<int>? id,
+    Expression<String>? entityTable,
+    Expression<String>? rowId,
+    Expression<int>? recordedAt,
+    Expression<String>? operation,
+    Expression<String>? beforeJson,
+    Expression<String>? afterJson,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (entityTable != null) 'entity_table': entityTable,
+      if (rowId != null) 'row_id': rowId,
+      if (recordedAt != null) 'recorded_at': recordedAt,
+      if (operation != null) 'operation': operation,
+      if (beforeJson != null) 'before_json': beforeJson,
+      if (afterJson != null) 'after_json': afterJson,
+    });
+  }
+
+  DatabaseHistoryChangesCompanion copyWith({
+    Value<int>? id,
+    Value<String>? entityTable,
+    Value<String>? rowId,
+    Value<int>? recordedAt,
+    Value<String>? operation,
+    Value<String?>? beforeJson,
+    Value<String?>? afterJson,
+  }) {
+    return DatabaseHistoryChangesCompanion(
+      id: id ?? this.id,
+      entityTable: entityTable ?? this.entityTable,
+      rowId: rowId ?? this.rowId,
+      recordedAt: recordedAt ?? this.recordedAt,
+      operation: operation ?? this.operation,
+      beforeJson: beforeJson ?? this.beforeJson,
+      afterJson: afterJson ?? this.afterJson,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (entityTable.present) {
+      map['entity_table'] = Variable<String>(entityTable.value);
+    }
+    if (rowId.present) {
+      map['row_id'] = Variable<String>(rowId.value);
+    }
+    if (recordedAt.present) {
+      map['recorded_at'] = Variable<int>(recordedAt.value);
+    }
+    if (operation.present) {
+      map['operation'] = Variable<String>(operation.value);
+    }
+    if (beforeJson.present) {
+      map['before_json'] = Variable<String>(beforeJson.value);
+    }
+    if (afterJson.present) {
+      map['after_json'] = Variable<String>(afterJson.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DatabaseHistoryChangesCompanion(')
+          ..write('id: $id, ')
+          ..write('entityTable: $entityTable, ')
+          ..write('rowId: $rowId, ')
+          ..write('recordedAt: $recordedAt, ')
+          ..write('operation: $operation, ')
+          ..write('beforeJson: $beforeJson, ')
+          ..write('afterJson: $afterJson')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $DatabaseHistoryMetadataTable extends DatabaseHistoryMetadata
+    with TableInfo<$DatabaseHistoryMetadataTable, DatabaseHistoryMetadataData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DatabaseHistoryMetadataTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _firstAvailableDateMeta =
+      const VerificationMeta('firstAvailableDate');
+  @override
+  late final GeneratedColumn<int> firstAvailableDate = GeneratedColumn<int>(
+    'first_available_date',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, firstAvailableDate];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'database_history_metadata';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<DatabaseHistoryMetadataData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('first_available_date')) {
+      context.handle(
+        _firstAvailableDateMeta,
+        firstAvailableDate.isAcceptableOrUnknown(
+          data['first_available_date']!,
+          _firstAvailableDateMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_firstAvailableDateMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  DatabaseHistoryMetadataData map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DatabaseHistoryMetadataData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      firstAvailableDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}first_available_date'],
+      )!,
+    );
+  }
+
+  @override
+  $DatabaseHistoryMetadataTable createAlias(String alias) {
+    return $DatabaseHistoryMetadataTable(attachedDatabase, alias);
+  }
+}
+
+class DatabaseHistoryMetadataData extends DataClass
+    implements Insertable<DatabaseHistoryMetadataData> {
+  final int id;
+  final int firstAvailableDate;
+  const DatabaseHistoryMetadataData({
+    required this.id,
+    required this.firstAvailableDate,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['first_available_date'] = Variable<int>(firstAvailableDate);
+    return map;
+  }
+
+  DatabaseHistoryMetadataCompanion toCompanion(bool nullToAbsent) {
+    return DatabaseHistoryMetadataCompanion(
+      id: Value(id),
+      firstAvailableDate: Value(firstAvailableDate),
+    );
+  }
+
+  factory DatabaseHistoryMetadataData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DatabaseHistoryMetadataData(
+      id: serializer.fromJson<int>(json['id']),
+      firstAvailableDate: serializer.fromJson<int>(json['firstAvailableDate']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'firstAvailableDate': serializer.toJson<int>(firstAvailableDate),
+    };
+  }
+
+  DatabaseHistoryMetadataData copyWith({int? id, int? firstAvailableDate}) =>
+      DatabaseHistoryMetadataData(
+        id: id ?? this.id,
+        firstAvailableDate: firstAvailableDate ?? this.firstAvailableDate,
+      );
+  DatabaseHistoryMetadataData copyWithCompanion(
+    DatabaseHistoryMetadataCompanion data,
+  ) {
+    return DatabaseHistoryMetadataData(
+      id: data.id.present ? data.id.value : this.id,
+      firstAvailableDate: data.firstAvailableDate.present
+          ? data.firstAvailableDate.value
+          : this.firstAvailableDate,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DatabaseHistoryMetadataData(')
+          ..write('id: $id, ')
+          ..write('firstAvailableDate: $firstAvailableDate')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, firstAvailableDate);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DatabaseHistoryMetadataData &&
+          other.id == this.id &&
+          other.firstAvailableDate == this.firstAvailableDate);
+}
+
+class DatabaseHistoryMetadataCompanion
+    extends UpdateCompanion<DatabaseHistoryMetadataData> {
+  final Value<int> id;
+  final Value<int> firstAvailableDate;
+  const DatabaseHistoryMetadataCompanion({
+    this.id = const Value.absent(),
+    this.firstAvailableDate = const Value.absent(),
+  });
+  DatabaseHistoryMetadataCompanion.insert({
+    this.id = const Value.absent(),
+    required int firstAvailableDate,
+  }) : firstAvailableDate = Value(firstAvailableDate);
+  static Insertable<DatabaseHistoryMetadataData> custom({
+    Expression<int>? id,
+    Expression<int>? firstAvailableDate,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (firstAvailableDate != null)
+        'first_available_date': firstAvailableDate,
+    });
+  }
+
+  DatabaseHistoryMetadataCompanion copyWith({
+    Value<int>? id,
+    Value<int>? firstAvailableDate,
+  }) {
+    return DatabaseHistoryMetadataCompanion(
+      id: id ?? this.id,
+      firstAvailableDate: firstAvailableDate ?? this.firstAvailableDate,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (firstAvailableDate.present) {
+      map['first_available_date'] = Variable<int>(firstAvailableDate.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DatabaseHistoryMetadataCompanion(')
+          ..write('id: $id, ')
+          ..write('firstAvailableDate: $firstAvailableDate')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -4485,6 +5166,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $DatabaseMetadataTable databaseMetadata = $DatabaseMetadataTable(
     this,
   );
+  late final $DatabaseHistoryChangesTable databaseHistoryChanges =
+      $DatabaseHistoryChangesTable(this);
+  late final $DatabaseHistoryMetadataTable databaseHistoryMetadata =
+      $DatabaseHistoryMetadataTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -4499,6 +5184,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     appSettings,
     backupImportIdentities,
     databaseMetadata,
+    databaseHistoryChanges,
+    databaseHistoryMetadata,
   ];
 }
 
@@ -7874,6 +8561,445 @@ typedef $$DatabaseMetadataTableProcessedTableManager =
       DatabaseMetadataData,
       PrefetchHooks Function()
     >;
+typedef $$DatabaseHistoryChangesTableCreateCompanionBuilder =
+    DatabaseHistoryChangesCompanion Function({
+      Value<int> id,
+      required String entityTable,
+      required String rowId,
+      required int recordedAt,
+      required String operation,
+      Value<String?> beforeJson,
+      Value<String?> afterJson,
+    });
+typedef $$DatabaseHistoryChangesTableUpdateCompanionBuilder =
+    DatabaseHistoryChangesCompanion Function({
+      Value<int> id,
+      Value<String> entityTable,
+      Value<String> rowId,
+      Value<int> recordedAt,
+      Value<String> operation,
+      Value<String?> beforeJson,
+      Value<String?> afterJson,
+    });
+
+class $$DatabaseHistoryChangesTableFilterComposer
+    extends Composer<_$AppDatabase, $DatabaseHistoryChangesTable> {
+  $$DatabaseHistoryChangesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entityTable => $composableBuilder(
+    column: $table.entityTable,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get rowId => $composableBuilder(
+    column: $table.rowId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get recordedAt => $composableBuilder(
+    column: $table.recordedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get operation => $composableBuilder(
+    column: $table.operation,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get beforeJson => $composableBuilder(
+    column: $table.beforeJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get afterJson => $composableBuilder(
+    column: $table.afterJson,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$DatabaseHistoryChangesTableOrderingComposer
+    extends Composer<_$AppDatabase, $DatabaseHistoryChangesTable> {
+  $$DatabaseHistoryChangesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entityTable => $composableBuilder(
+    column: $table.entityTable,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get rowId => $composableBuilder(
+    column: $table.rowId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get recordedAt => $composableBuilder(
+    column: $table.recordedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get operation => $composableBuilder(
+    column: $table.operation,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get beforeJson => $composableBuilder(
+    column: $table.beforeJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get afterJson => $composableBuilder(
+    column: $table.afterJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$DatabaseHistoryChangesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $DatabaseHistoryChangesTable> {
+  $$DatabaseHistoryChangesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get entityTable => $composableBuilder(
+    column: $table.entityTable,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get rowId =>
+      $composableBuilder(column: $table.rowId, builder: (column) => column);
+
+  GeneratedColumn<int> get recordedAt => $composableBuilder(
+    column: $table.recordedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get operation =>
+      $composableBuilder(column: $table.operation, builder: (column) => column);
+
+  GeneratedColumn<String> get beforeJson => $composableBuilder(
+    column: $table.beforeJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get afterJson =>
+      $composableBuilder(column: $table.afterJson, builder: (column) => column);
+}
+
+class $$DatabaseHistoryChangesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $DatabaseHistoryChangesTable,
+          DatabaseHistoryChange,
+          $$DatabaseHistoryChangesTableFilterComposer,
+          $$DatabaseHistoryChangesTableOrderingComposer,
+          $$DatabaseHistoryChangesTableAnnotationComposer,
+          $$DatabaseHistoryChangesTableCreateCompanionBuilder,
+          $$DatabaseHistoryChangesTableUpdateCompanionBuilder,
+          (
+            DatabaseHistoryChange,
+            BaseReferences<
+              _$AppDatabase,
+              $DatabaseHistoryChangesTable,
+              DatabaseHistoryChange
+            >,
+          ),
+          DatabaseHistoryChange,
+          PrefetchHooks Function()
+        > {
+  $$DatabaseHistoryChangesTableTableManager(
+    _$AppDatabase db,
+    $DatabaseHistoryChangesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DatabaseHistoryChangesTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$DatabaseHistoryChangesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$DatabaseHistoryChangesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> entityTable = const Value.absent(),
+                Value<String> rowId = const Value.absent(),
+                Value<int> recordedAt = const Value.absent(),
+                Value<String> operation = const Value.absent(),
+                Value<String?> beforeJson = const Value.absent(),
+                Value<String?> afterJson = const Value.absent(),
+              }) => DatabaseHistoryChangesCompanion(
+                id: id,
+                entityTable: entityTable,
+                rowId: rowId,
+                recordedAt: recordedAt,
+                operation: operation,
+                beforeJson: beforeJson,
+                afterJson: afterJson,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String entityTable,
+                required String rowId,
+                required int recordedAt,
+                required String operation,
+                Value<String?> beforeJson = const Value.absent(),
+                Value<String?> afterJson = const Value.absent(),
+              }) => DatabaseHistoryChangesCompanion.insert(
+                id: id,
+                entityTable: entityTable,
+                rowId: rowId,
+                recordedAt: recordedAt,
+                operation: operation,
+                beforeJson: beforeJson,
+                afterJson: afterJson,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<
+                    $DatabaseHistoryChangesTable,
+                    DatabaseHistoryChange
+                  >(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $DatabaseHistoryChangesTable,
+                    DatabaseHistoryChange
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$DatabaseHistoryChangesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $DatabaseHistoryChangesTable,
+      DatabaseHistoryChange,
+      $$DatabaseHistoryChangesTableFilterComposer,
+      $$DatabaseHistoryChangesTableOrderingComposer,
+      $$DatabaseHistoryChangesTableAnnotationComposer,
+      $$DatabaseHistoryChangesTableCreateCompanionBuilder,
+      $$DatabaseHistoryChangesTableUpdateCompanionBuilder,
+      (
+        DatabaseHistoryChange,
+        BaseReferences<
+          _$AppDatabase,
+          $DatabaseHistoryChangesTable,
+          DatabaseHistoryChange
+        >,
+      ),
+      DatabaseHistoryChange,
+      PrefetchHooks Function()
+    >;
+typedef $$DatabaseHistoryMetadataTableCreateCompanionBuilder =
+    DatabaseHistoryMetadataCompanion Function({
+      Value<int> id,
+      required int firstAvailableDate,
+    });
+typedef $$DatabaseHistoryMetadataTableUpdateCompanionBuilder =
+    DatabaseHistoryMetadataCompanion Function({
+      Value<int> id,
+      Value<int> firstAvailableDate,
+    });
+
+class $$DatabaseHistoryMetadataTableFilterComposer
+    extends Composer<_$AppDatabase, $DatabaseHistoryMetadataTable> {
+  $$DatabaseHistoryMetadataTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get firstAvailableDate => $composableBuilder(
+    column: $table.firstAvailableDate,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$DatabaseHistoryMetadataTableOrderingComposer
+    extends Composer<_$AppDatabase, $DatabaseHistoryMetadataTable> {
+  $$DatabaseHistoryMetadataTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get firstAvailableDate => $composableBuilder(
+    column: $table.firstAvailableDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$DatabaseHistoryMetadataTableAnnotationComposer
+    extends Composer<_$AppDatabase, $DatabaseHistoryMetadataTable> {
+  $$DatabaseHistoryMetadataTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get firstAvailableDate => $composableBuilder(
+    column: $table.firstAvailableDate,
+    builder: (column) => column,
+  );
+}
+
+class $$DatabaseHistoryMetadataTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $DatabaseHistoryMetadataTable,
+          DatabaseHistoryMetadataData,
+          $$DatabaseHistoryMetadataTableFilterComposer,
+          $$DatabaseHistoryMetadataTableOrderingComposer,
+          $$DatabaseHistoryMetadataTableAnnotationComposer,
+          $$DatabaseHistoryMetadataTableCreateCompanionBuilder,
+          $$DatabaseHistoryMetadataTableUpdateCompanionBuilder,
+          (
+            DatabaseHistoryMetadataData,
+            BaseReferences<
+              _$AppDatabase,
+              $DatabaseHistoryMetadataTable,
+              DatabaseHistoryMetadataData
+            >,
+          ),
+          DatabaseHistoryMetadataData,
+          PrefetchHooks Function()
+        > {
+  $$DatabaseHistoryMetadataTableTableManager(
+    _$AppDatabase db,
+    $DatabaseHistoryMetadataTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DatabaseHistoryMetadataTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$DatabaseHistoryMetadataTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$DatabaseHistoryMetadataTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> firstAvailableDate = const Value.absent(),
+              }) => DatabaseHistoryMetadataCompanion(
+                id: id,
+                firstAvailableDate: firstAvailableDate,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int firstAvailableDate,
+              }) => DatabaseHistoryMetadataCompanion.insert(
+                id: id,
+                firstAvailableDate: firstAvailableDate,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<
+                    $DatabaseHistoryMetadataTable,
+                    DatabaseHistoryMetadataData
+                  >(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $DatabaseHistoryMetadataTable,
+                    DatabaseHistoryMetadataData
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$DatabaseHistoryMetadataTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $DatabaseHistoryMetadataTable,
+      DatabaseHistoryMetadataData,
+      $$DatabaseHistoryMetadataTableFilterComposer,
+      $$DatabaseHistoryMetadataTableOrderingComposer,
+      $$DatabaseHistoryMetadataTableAnnotationComposer,
+      $$DatabaseHistoryMetadataTableCreateCompanionBuilder,
+      $$DatabaseHistoryMetadataTableUpdateCompanionBuilder,
+      (
+        DatabaseHistoryMetadataData,
+        BaseReferences<
+          _$AppDatabase,
+          $DatabaseHistoryMetadataTable,
+          DatabaseHistoryMetadataData
+        >,
+      ),
+      DatabaseHistoryMetadataData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -7899,4 +9025,14 @@ class $AppDatabaseManager {
       );
   $$DatabaseMetadataTableTableManager get databaseMetadata =>
       $$DatabaseMetadataTableTableManager(_db, _db.databaseMetadata);
+  $$DatabaseHistoryChangesTableTableManager get databaseHistoryChanges =>
+      $$DatabaseHistoryChangesTableTableManager(
+        _db,
+        _db.databaseHistoryChanges,
+      );
+  $$DatabaseHistoryMetadataTableTableManager get databaseHistoryMetadata =>
+      $$DatabaseHistoryMetadataTableTableManager(
+        _db,
+        _db.databaseHistoryMetadata,
+      );
 }

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 
@@ -119,6 +121,24 @@ class DatabaseMetadata extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
+class DatabaseHistoryChanges extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get entityTable => text()();
+  TextColumn get rowId => text()();
+  IntColumn get recordedAt => integer()();
+  TextColumn get operation => text()();
+  TextColumn get beforeJson => text().nullable()();
+  TextColumn get afterJson => text().nullable()();
+}
+
+class DatabaseHistoryMetadata extends Table {
+  IntColumn get id => integer()();
+  IntColumn get firstAvailableDate => integer()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
 @DriftDatabase(
   tables: [
     Accounts,
@@ -130,6 +150,8 @@ class DatabaseMetadata extends Table {
     AppSettings,
     BackupImportIdentities,
     DatabaseMetadata,
+    DatabaseHistoryChanges,
+    DatabaseHistoryMetadata,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -146,7 +168,81 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
+
+  static const historyTables = {
+    'accounts': [
+      'id',
+      'name',
+      'type',
+      'currency',
+      'is_no_withdrawal',
+      'is_deposit',
+      'initial_balance',
+      'current_balance',
+      'is_active',
+      'created_at',
+    ],
+    'categories': [
+      'id',
+      'name',
+      'type',
+      'icon',
+      'color',
+      'is_system',
+      'is_archived',
+      'is_hidden',
+    ],
+    'transactions': [
+      'id',
+      'account_id',
+      'category_id',
+      'type',
+      'amount',
+      'currency',
+      'description',
+      'transaction_date',
+      'created_at',
+      'updated_at',
+      'is_excluded_from_statistics',
+      'is_unavoidable',
+      'linked_payment_occurrence_id',
+      'transfer_group_id',
+    ],
+    'recurring_payments': [
+      'id',
+      'name',
+      'amount',
+      'category_id',
+      'account_id',
+      'frequency',
+      'payment_day',
+      'start_date',
+      'end_date',
+      'is_active',
+      'is_auto_pay',
+      'description',
+    ],
+    'payment_occurrences': [
+      'id',
+      'recurring_payment_id',
+      'expected_amount',
+      'due_date',
+      'status',
+      'paid_amount',
+      'linked_transaction_id',
+    ],
+    'income_schedules': [
+      'id',
+      'name',
+      'expected_amount',
+      'frequency',
+      'expected_date',
+      'is_active',
+      'linked_transaction_id',
+    ],
+    'app_settings': ['key', 'value'],
+  };
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -171,15 +267,109 @@ class AppDatabase extends _$AppDatabase {
         await ensureDepositTransferCategory();
       }
       if (from < 8) await m.addColumn(transactions, transactions.isUnavoidable);
+      if (from < 9) {
+        await m.createTable(databaseHistoryChanges);
+        await m.createTable(databaseHistoryMetadata);
+      }
       if (from < 2) await _seedDefaultCategories();
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
       await ensureDepositTransferCategory();
       await _ensureMetadata();
+      await _ensureHistoryBaseline();
+      await _installHistoryTriggers();
       await _installRevisionTriggers();
     },
   );
+
+  Future<DateTime> getHistoryFirstAvailableDate() async {
+    await customSelect('SELECT 1').get();
+    final metadata = await (select(
+      databaseHistoryMetadata,
+    )..where((row) => row.id.equals(1))).getSingle();
+    return DateTime.fromMillisecondsSinceEpoch(metadata.firstAvailableDate)
+        .toLocal();
+  }
+
+  Future<void> resetHistoryToCurrentState() async {
+    await transaction(() async {
+      await delete(databaseHistoryChanges).go();
+      await delete(databaseHistoryMetadata).go();
+      await _ensureHistoryBaseline();
+    });
+  }
+
+  Future<void> _ensureHistoryBaseline() async {
+    final existing = await (select(
+      databaseHistoryMetadata,
+    )..where((row) => row.id.equals(1))).getSingleOrNull();
+    if (existing != null) return;
+
+    final now = DateTime.now();
+    final firstAvailableDate = DateTime(
+      now.year,
+      now.month,
+      now.day + 1,
+    ).millisecondsSinceEpoch;
+    await into(databaseHistoryMetadata).insert(
+      DatabaseHistoryMetadataCompanion.insert(
+        id: const Value(1),
+        firstAvailableDate: firstAvailableDate,
+      ),
+    );
+    for (final table in historyTables.keys) {
+      final rows = await customSelect('SELECT * FROM "$table"').get();
+      for (final row in rows) {
+        final values = row.data;
+        final rowId = values['id']?.toString() ?? values['key'].toString();
+        await into(databaseHistoryChanges).insert(
+          DatabaseHistoryChangesCompanion.insert(
+            entityTable: table,
+            rowId: rowId,
+            recordedAt: now.millisecondsSinceEpoch,
+            operation: 'SNAPSHOT',
+            afterJson: Value(jsonEncode(values)),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _installHistoryTriggers() async {
+    const recordedAt =
+        "(CAST(strftime('%s','now') AS INTEGER) * 1000 + "
+        "CAST(substr(strftime('%f','now'), 4, 3) AS INTEGER))";
+    for (final entry in historyTables.entries) {
+      final table = entry.key;
+      final keyColumn = table == 'app_settings' ? 'key' : 'id';
+      final columns = entry.value;
+      for (final event in const ['INSERT', 'UPDATE', 'DELETE']) {
+        final isDelete = event == 'DELETE';
+        final isInsert = event == 'INSERT';
+        final oldRow = isInsert ? null : 'OLD';
+        final newRow = isDelete ? null : 'NEW';
+        final trigger = 'history_${table}_${event.toLowerCase()}';
+        final beforeJson = oldRow == null
+            ? 'NULL'
+            : "json_object(${columns.map((column) => "'$column', $oldRow.\"$column\"").join(', ')})";
+        final afterJson = newRow == null
+            ? 'NULL'
+            : "json_object(${columns.map((column) => "'$column', $newRow.\"$column\"").join(', ')})";
+        final rowId = isDelete ? 'OLD."$keyColumn"' : 'NEW."$keyColumn"';
+        await customStatement('''
+          CREATE TRIGGER IF NOT EXISTS "$trigger"
+          AFTER $event ON "$table"
+          BEGIN
+            INSERT INTO database_history_changes
+              (entity_table, row_id, recorded_at, operation, before_json, after_json)
+            VALUES
+              ('$table', CAST($rowId AS TEXT), $recordedAt, '$event', $beforeJson, $afterJson);
+          END
+        ''');
+      }
+    }
+  }
 
   Future<void> _ensureMetadata() => customStatement(
     'INSERT OR IGNORE INTO database_metadata '

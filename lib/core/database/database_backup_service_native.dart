@@ -25,7 +25,7 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
   static const _backupDirectoryName = 'payday-backups';
   static const _backupPrefix = 'payday-before-import-';
   static const _retainedBackupCount = 6;
-  static const _schemaVersion = 8;
+  static const _schemaVersion = 9;
 
   static const _columnsByTable = <String, List<String>>{
     'accounts': [
@@ -99,6 +99,16 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
       'linked_transaction_id',
     ],
     'app_settings': ['key', 'value'],
+    'database_history_changes': [
+      'id',
+      'entity_table',
+      'row_id',
+      'recorded_at',
+      'operation',
+      'before_json',
+      'after_json',
+    ],
+    'database_history_metadata': ['id', 'first_available_date'],
   };
 
   static const _replacementOrder = [
@@ -109,6 +119,8 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
     'payment_occurrences',
     'income_schedules',
     'app_settings',
+    'database_history_metadata',
+    'database_history_changes',
   ];
 
   @override
@@ -176,12 +188,22 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
     final source = _openAndValidate(path);
     try {
       final sourceMetadata = _readSourceMetadata(source);
+      final sourceVersion =
+          source.select('PRAGMA user_version').single.values.first as int;
       final rowsByTable = {
         for (final table in _columnsByTable.keys)
-          table: source
-              .select('SELECT * FROM "$table"')
-              .map((row) => Map<String, Object?>.from(row))
-              .toList(),
+          table:
+              source
+                  .select(
+                    "SELECT 1 FROM sqlite_master WHERE type = 'table' "
+                    "AND name = '$table'",
+                  )
+                  .isEmpty
+              ? <Map<String, Object?>>[]
+              : source
+                    .select('SELECT * FROM "$table"')
+                    .map((row) => Map<String, Object?>.from(row))
+                    .toList(),
       };
       var backupCreated = false;
       try {
@@ -213,7 +235,11 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
           await database.customStatement(
             'DELETE FROM backup_import_identities',
           );
-          for (final table in _replacementOrder) {
+          for (final table in _replacementOrder.where(
+            (table) =>
+                table != 'database_history_changes' &&
+                table != 'database_history_metadata',
+          )) {
             final columns = _columnsByTable[table]!;
             for (final sourceRow in rowsByTable[table]!) {
               final row = _normalizeOptionalLinks(
@@ -234,6 +260,39 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
                     .toList(),
               );
             }
+          }
+          await database.customStatement(
+            'DELETE FROM database_history_changes',
+          );
+          await database.customStatement(
+            'DELETE FROM database_history_metadata',
+          );
+          if (sourceVersion >= 9) {
+            for (final sourceRow in rowsByTable['database_history_metadata']!) {
+              await database.customStatement(
+                'INSERT INTO database_history_metadata '
+                '(id, first_available_date) VALUES (?, ?)',
+                [sourceRow['id'], sourceRow['first_available_date']],
+              );
+            }
+            for (final sourceRow in rowsByTable['database_history_changes']!) {
+              await database.customStatement(
+                'INSERT INTO database_history_changes '
+                '(id, entity_table, row_id, recorded_at, operation, before_json, after_json) '
+                'VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [
+                  sourceRow['id'],
+                  sourceRow['entity_table'],
+                  sourceRow['row_id'],
+                  sourceRow['recorded_at'],
+                  sourceRow['operation'],
+                  sourceRow['before_json'],
+                  sourceRow['after_json'],
+                ],
+              );
+            }
+          } else {
+            await database.resetHistoryToCurrentState();
           }
 
           final databaseId =
@@ -414,6 +473,11 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
       );
     }
     for (final entry in _columnsByTable.entries) {
+      if (version < 9 &&
+          (entry.key == 'database_history_changes' ||
+              entry.key == 'database_history_metadata')) {
+        continue;
+      }
       final columns = source
           .select('PRAGMA table_info("${entry.key}")')
           .map((row) => row['name'] as String)
