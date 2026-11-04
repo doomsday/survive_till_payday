@@ -38,17 +38,24 @@ class DashboardPage extends ConsumerWidget {
     }
     final snapshot = finance.value!;
     final data = dashboard.value!;
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Обзор'),
-        actions: [
-          IconButton(
-            tooltip: 'Финансовый план',
-            onPressed: () => context.go('/settings'),
-            icon: const Icon(Icons.tune),
-          ),
-          const SizedBox(width: 8),
-        ],
+        title: Row(
+          children: [
+            const Text('Обзор'),
+            const SizedBox(width: 12),
+            Flexible(
+              child: Text(
+                DateFormat('EEEE, d MMMM', 'ru').format(DateTime.now()),
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
       body: RefreshIndicator(
         onRefresh: () async {
@@ -63,11 +70,6 @@ class DashboardPage extends ConsumerWidget {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
           children: [
-            Text(
-              DateFormat('EEEE, d MMMM', 'ru').format(DateTime.now()),
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 12),
             _SafeToSpendCard(finance: snapshot),
             const SizedBox(height: 12),
             _FinanceSummary(finance: snapshot),
