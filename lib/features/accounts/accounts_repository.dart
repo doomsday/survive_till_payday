@@ -17,9 +17,12 @@ class AccountsRepository {
 
   final AppDatabase _database;
 
-  Stream<List<Account>> watchAll() => (_database.select(
-    _database.accounts,
-  )..orderBy([(account) => OrderingTerm.asc(account.name)])).watch();
+  Stream<List<Account>> watchAll() =>
+      (_database.select(_database.accounts)..orderBy([
+            (account) => OrderingTerm.asc(account.displayOrder),
+            (account) => OrderingTerm.asc(account.name),
+          ]))
+          .watch();
 
   Future<Account?> getById(int id) => (_database.select(
     _database.accounts,
@@ -33,18 +36,28 @@ class AccountsRepository {
     bool isDeposit = false,
   }) {
     _validate(name, type, initialBalance);
-    return _database
-        .into(_database.accounts)
-        .insert(
-          AccountsCompanion.insert(
-            name: name.trim(),
-            type: Value(type),
-            isNoWithdrawal: Value(isNoWithdrawal),
-            isDeposit: Value(isDeposit),
-            initialBalance: Value(initialBalance),
-            currentBalance: Value(initialBalance),
-          ),
-        );
+    return _database.transaction(() async {
+      final last =
+          await (_database.select(_database.accounts)
+                ..orderBy([
+                  (account) => OrderingTerm.desc(account.displayOrder),
+                ])
+                ..limit(1))
+              .getSingleOrNull();
+      return _database
+          .into(_database.accounts)
+          .insert(
+            AccountsCompanion.insert(
+              name: name.trim(),
+              displayOrder: Value((last?.displayOrder ?? -1) + 1),
+              type: Value(type),
+              isNoWithdrawal: Value(isNoWithdrawal),
+              isDeposit: Value(isDeposit),
+              initialBalance: Value(initialBalance),
+              currentBalance: Value(initialBalance),
+            ),
+          );
+    });
   }
 
   Future<void> update({
@@ -124,6 +137,16 @@ class AccountsRepository {
               ..where((account) => account.id.equals(id)))
             .write(AccountsCompanion(isActive: Value(isActive)));
     if (updated == 0) throw StateError('Account $id does not exist.');
+  }
+
+  Future<void> reorder(List<int> accountIds) async {
+    await _database.transaction(() async {
+      for (var index = 0; index < accountIds.length; index++) {
+        await (_database.update(_database.accounts)
+              ..where((account) => account.id.equals(accountIds[index])))
+            .write(AccountsCompanion(displayOrder: Value(index)));
+      }
+    });
   }
 
   Future<bool> archiveOrDelete(int id) => _database.transaction(() async {

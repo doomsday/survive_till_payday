@@ -25,12 +25,13 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
   static const _backupDirectoryName = 'payday-backups';
   static const _backupPrefix = 'payday-before-import-';
   static const _retainedBackupCount = 6;
-  static const _schemaVersion = 9;
+  static const _schemaVersion = 10;
 
   static const _columnsByTable = <String, List<String>>{
     'accounts': [
       'id',
       'name',
+      'display_order',
       'type',
       'currency',
       'is_no_withdrawal',
@@ -485,6 +486,9 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
       final expectedColumns = entry.value.toSet();
       if (entry.key == 'accounts' && !columns.contains('is_no_withdrawal')) {
         expectedColumns.remove('is_no_withdrawal');
+      }
+      if (version < 10 && entry.key == 'accounts') {
+        expectedColumns.remove('display_order');
       }
       if (version < 7) {
         if (entry.key == 'accounts') expectedColumns.remove('is_deposit');

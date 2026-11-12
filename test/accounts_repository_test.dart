@@ -93,6 +93,18 @@ void main() {
     expect(account.isDeposit, isTrue);
   });
 
+  test('preserves the custom account order', () async {
+    final firstId = await repository.create(name: 'Первый', initialBalance: 0);
+    final secondId = await repository.create(name: 'Второй', initialBalance: 0);
+
+    await repository.reorder([secondId, firstId]);
+
+    expect((await repository.watchAll().first).map((account) => account.id), [
+      secondId,
+      firstId,
+    ]);
+  });
+
   test(
     'archives referenced accounts and permanently deletes unused accounts',
     () async {

@@ -10,6 +10,7 @@ const depositTransferCategoryName = 'Перевод на депозит';
 class Accounts extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text().withLength(min: 1, max: 80)();
+  IntColumn get displayOrder => integer().withDefault(const Constant(0))();
   TextColumn get type => text().withDefault(const Constant('BANK'))();
   TextColumn get currency => text().withDefault(const Constant('KZT'))();
   BoolColumn get isNoWithdrawal =>
@@ -168,12 +169,13 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   static const historyTables = {
     'accounts': [
       'id',
       'name',
+      'display_order',
       'type',
       'currency',
       'is_no_withdrawal',
@@ -270,6 +272,17 @@ class AppDatabase extends _$AppDatabase {
       if (from < 9) {
         await m.createTable(databaseHistoryChanges);
         await m.createTable(databaseHistoryMetadata);
+      }
+      if (from < 10) {
+        await m.addColumn(accounts, accounts.displayOrder);
+        final existing = await (select(
+          accounts,
+        )..orderBy([(account) => OrderingTerm.asc(account.name)])).get();
+        for (var index = 0; index < existing.length; index++) {
+          await (update(accounts)
+                ..where((account) => account.id.equals(existing[index].id)))
+              .write(AccountsCompanion(displayOrder: Value(index)));
+        }
       }
       if (from < 2) await _seedDefaultCategories();
     },

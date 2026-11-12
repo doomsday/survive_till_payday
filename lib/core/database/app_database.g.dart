@@ -34,6 +34,18 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _displayOrderMeta = const VerificationMeta(
+    'displayOrder',
+  );
+  @override
+  late final GeneratedColumn<int> displayOrder = GeneratedColumn<int>(
+    'display_order',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _typeMeta = const VerificationMeta('type');
   @override
   late final GeneratedColumn<String> type = GeneratedColumn<String>(
@@ -141,6 +153,7 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
   List<GeneratedColumn> get $columns => [
     id,
     name,
+    displayOrder,
     type,
     currency,
     isNoWithdrawal,
@@ -172,6 +185,15 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
       );
     } else if (isInserting) {
       context.missing(_nameMeta);
+    }
+    if (data.containsKey('display_order')) {
+      context.handle(
+        _displayOrderMeta,
+        displayOrder.isAcceptableOrUnknown(
+          data['display_order']!,
+          _displayOrderMeta,
+        ),
+      );
     }
     if (data.containsKey('type')) {
       context.handle(
@@ -247,6 +269,10 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
         DriftSqlType.string,
         data['${effectivePrefix}name'],
       )!,
+      displayOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}display_order'],
+      )!,
       type: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}type'],
@@ -291,6 +317,7 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
 class Account extends DataClass implements Insertable<Account> {
   final int id;
   final String name;
+  final int displayOrder;
   final String type;
   final String currency;
   final bool isNoWithdrawal;
@@ -302,6 +329,7 @@ class Account extends DataClass implements Insertable<Account> {
   const Account({
     required this.id,
     required this.name,
+    required this.displayOrder,
     required this.type,
     required this.currency,
     required this.isNoWithdrawal,
@@ -316,6 +344,7 @@ class Account extends DataClass implements Insertable<Account> {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
     map['name'] = Variable<String>(name);
+    map['display_order'] = Variable<int>(displayOrder);
     map['type'] = Variable<String>(type);
     map['currency'] = Variable<String>(currency);
     map['is_no_withdrawal'] = Variable<bool>(isNoWithdrawal);
@@ -331,6 +360,7 @@ class Account extends DataClass implements Insertable<Account> {
     return AccountsCompanion(
       id: Value(id),
       name: Value(name),
+      displayOrder: Value(displayOrder),
       type: Value(type),
       currency: Value(currency),
       isNoWithdrawal: Value(isNoWithdrawal),
@@ -350,6 +380,7 @@ class Account extends DataClass implements Insertable<Account> {
     return Account(
       id: serializer.fromJson<int>(json['id']),
       name: serializer.fromJson<String>(json['name']),
+      displayOrder: serializer.fromJson<int>(json['displayOrder']),
       type: serializer.fromJson<String>(json['type']),
       currency: serializer.fromJson<String>(json['currency']),
       isNoWithdrawal: serializer.fromJson<bool>(json['isNoWithdrawal']),
@@ -366,6 +397,7 @@ class Account extends DataClass implements Insertable<Account> {
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'name': serializer.toJson<String>(name),
+      'displayOrder': serializer.toJson<int>(displayOrder),
       'type': serializer.toJson<String>(type),
       'currency': serializer.toJson<String>(currency),
       'isNoWithdrawal': serializer.toJson<bool>(isNoWithdrawal),
@@ -380,6 +412,7 @@ class Account extends DataClass implements Insertable<Account> {
   Account copyWith({
     int? id,
     String? name,
+    int? displayOrder,
     String? type,
     String? currency,
     bool? isNoWithdrawal,
@@ -391,6 +424,7 @@ class Account extends DataClass implements Insertable<Account> {
   }) => Account(
     id: id ?? this.id,
     name: name ?? this.name,
+    displayOrder: displayOrder ?? this.displayOrder,
     type: type ?? this.type,
     currency: currency ?? this.currency,
     isNoWithdrawal: isNoWithdrawal ?? this.isNoWithdrawal,
@@ -404,6 +438,9 @@ class Account extends DataClass implements Insertable<Account> {
     return Account(
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
+      displayOrder: data.displayOrder.present
+          ? data.displayOrder.value
+          : this.displayOrder,
       type: data.type.present ? data.type.value : this.type,
       currency: data.currency.present ? data.currency.value : this.currency,
       isNoWithdrawal: data.isNoWithdrawal.present
@@ -426,6 +463,7 @@ class Account extends DataClass implements Insertable<Account> {
     return (StringBuffer('Account(')
           ..write('id: $id, ')
           ..write('name: $name, ')
+          ..write('displayOrder: $displayOrder, ')
           ..write('type: $type, ')
           ..write('currency: $currency, ')
           ..write('isNoWithdrawal: $isNoWithdrawal, ')
@@ -442,6 +480,7 @@ class Account extends DataClass implements Insertable<Account> {
   int get hashCode => Object.hash(
     id,
     name,
+    displayOrder,
     type,
     currency,
     isNoWithdrawal,
@@ -457,6 +496,7 @@ class Account extends DataClass implements Insertable<Account> {
       (other is Account &&
           other.id == this.id &&
           other.name == this.name &&
+          other.displayOrder == this.displayOrder &&
           other.type == this.type &&
           other.currency == this.currency &&
           other.isNoWithdrawal == this.isNoWithdrawal &&
@@ -470,6 +510,7 @@ class Account extends DataClass implements Insertable<Account> {
 class AccountsCompanion extends UpdateCompanion<Account> {
   final Value<int> id;
   final Value<String> name;
+  final Value<int> displayOrder;
   final Value<String> type;
   final Value<String> currency;
   final Value<bool> isNoWithdrawal;
@@ -481,6 +522,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
   const AccountsCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
+    this.displayOrder = const Value.absent(),
     this.type = const Value.absent(),
     this.currency = const Value.absent(),
     this.isNoWithdrawal = const Value.absent(),
@@ -493,6 +535,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
   AccountsCompanion.insert({
     this.id = const Value.absent(),
     required String name,
+    this.displayOrder = const Value.absent(),
     this.type = const Value.absent(),
     this.currency = const Value.absent(),
     this.isNoWithdrawal = const Value.absent(),
@@ -505,6 +548,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
   static Insertable<Account> custom({
     Expression<int>? id,
     Expression<String>? name,
+    Expression<int>? displayOrder,
     Expression<String>? type,
     Expression<String>? currency,
     Expression<bool>? isNoWithdrawal,
@@ -517,6 +561,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (name != null) 'name': name,
+      if (displayOrder != null) 'display_order': displayOrder,
       if (type != null) 'type': type,
       if (currency != null) 'currency': currency,
       if (isNoWithdrawal != null) 'is_no_withdrawal': isNoWithdrawal,
@@ -531,6 +576,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
   AccountsCompanion copyWith({
     Value<int>? id,
     Value<String>? name,
+    Value<int>? displayOrder,
     Value<String>? type,
     Value<String>? currency,
     Value<bool>? isNoWithdrawal,
@@ -543,6 +589,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     return AccountsCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
+      displayOrder: displayOrder ?? this.displayOrder,
       type: type ?? this.type,
       currency: currency ?? this.currency,
       isNoWithdrawal: isNoWithdrawal ?? this.isNoWithdrawal,
@@ -562,6 +609,9 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     }
     if (name.present) {
       map['name'] = Variable<String>(name.value);
+    }
+    if (displayOrder.present) {
+      map['display_order'] = Variable<int>(displayOrder.value);
     }
     if (type.present) {
       map['type'] = Variable<String>(type.value);
@@ -595,6 +645,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     return (StringBuffer('AccountsCompanion(')
           ..write('id: $id, ')
           ..write('name: $name, ')
+          ..write('displayOrder: $displayOrder, ')
           ..write('type: $type, ')
           ..write('currency: $currency, ')
           ..write('isNoWithdrawal: $isNoWithdrawal, ')
@@ -5192,6 +5243,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
 typedef $$AccountsTableCreateCompanionBuilder = AccountsCompanion Function({
   Value<int> id,
   required String name,
+  Value<int> displayOrder,
   Value<String> type,
   Value<String> currency,
   Value<bool> isNoWithdrawal,
@@ -5204,6 +5256,7 @@ typedef $$AccountsTableCreateCompanionBuilder = AccountsCompanion Function({
 typedef $$AccountsTableUpdateCompanionBuilder = AccountsCompanion Function({
   Value<int> id,
   Value<String> name,
+  Value<int> displayOrder,
   Value<String> type,
   Value<String> currency,
   Value<bool> isNoWithdrawal,
@@ -5274,6 +5327,11 @@ class $$AccountsTableFilterComposer
 
   ColumnFilters<String> get name => $composableBuilder(
     column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get displayOrder => $composableBuilder(
+    column: $table.displayOrder,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5387,6 +5445,11 @@ class $$AccountsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get displayOrder => $composableBuilder(
+    column: $table.displayOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get type => $composableBuilder(
     column: $table.type,
     builder: (column) => ColumnOrderings(column),
@@ -5442,6 +5505,11 @@ class $$AccountsTableAnnotationComposer
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<int> get displayOrder => $composableBuilder(
+    column: $table.displayOrder,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get type =>
       $composableBuilder(column: $table.type, builder: (column) => column);
@@ -5558,6 +5626,7 @@ class $$AccountsTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
+                Value<int> displayOrder = const Value.absent(),
                 Value<String> type = const Value.absent(),
                 Value<String> currency = const Value.absent(),
                 Value<bool> isNoWithdrawal = const Value.absent(),
@@ -5569,6 +5638,7 @@ class $$AccountsTableTableManager
               }) => AccountsCompanion(
                 id: id,
                 name: name,
+                displayOrder: displayOrder,
                 type: type,
                 currency: currency,
                 isNoWithdrawal: isNoWithdrawal,
@@ -5582,6 +5652,7 @@ class $$AccountsTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 required String name,
+                Value<int> displayOrder = const Value.absent(),
                 Value<String> type = const Value.absent(),
                 Value<String> currency = const Value.absent(),
                 Value<bool> isNoWithdrawal = const Value.absent(),
@@ -5593,6 +5664,7 @@ class $$AccountsTableTableManager
               }) => AccountsCompanion.insert(
                 id: id,
                 name: name,
+                displayOrder: displayOrder,
                 type: type,
                 currency: currency,
                 isNoWithdrawal: isNoWithdrawal,

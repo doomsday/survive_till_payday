@@ -1,3 +1,14 @@
+/// Страница главного дашборда — обзор финансов на выбранную дату.
+///
+/// Показывает:
+/// - Сколько можно потратить до зарплаты и сегодня;
+/// - Сводку по балансу, ожидаемым доходам и неоплаченным платежам;
+/// - Доходы/расходы за месяц, разбивку по категориям;
+/// - Ближайшие платежи и последние операции;
+/// - Кнопку быстрого добавления расхода.
+///
+/// Данные загружаются через Riverpod-провайдер [dashboardDayAtDateProvider],
+/// который наблюдает за изменениями в базе и автоматически обновляет UI.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,14 +17,18 @@ import 'package:intl/intl.dart';
 import '../domain/financial_planning_service.dart';
 import '../planning_providers.dart';
 
+/// Форматирование сумм в тенге (₸) без дробной части.
 final _money = NumberFormat.currency(
   locale: 'ru_KZ',
   symbol: '₸',
   decimalDigits: 0,
 );
+/// Короткий формат даты: «5 ноя».
 final _date = DateFormat('d MMM', 'ru');
+/// Полный формат даты: «5 ноября 2025».
 final _longDate = DateFormat('d MMMM y', 'ru');
 
+/// Главная страница дашборда с выбором даты и отображением финансовых данных.
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
 
@@ -21,15 +36,23 @@ class DashboardPage extends ConsumerStatefulWidget {
   ConsumerState<DashboardPage> createState() => _DashboardPageState();
 }
 
+/// Состояние дашборда: управляет выбранной датой и строит UI.
 class _DashboardPageState extends ConsumerState<DashboardPage> {
+  /// Дата, выбранная пользователем для просмотра (по умолчанию — сегодня).
   late DateTime _selectedDate = calendarDate(DateTime.now());
 
   @override
   Widget build(BuildContext context) {
+    // Подписываемся на провайдер, который загружает все данные дашборда
+    // для выбранной даты: финансовый снимок, статистику, счета, категории.
     final dashboardDay = ref.watch(dashboardDayAtDateProvider(_selectedDate));
+
+    // Состояние загрузки — показываем индикатор.
     if (dashboardDay.isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+
+    // Ошибка загрузки — показываем сообщение об ошибке.
     if (dashboardDay.hasError) {
       final error = dashboardDay.error;
       return Scaffold(
@@ -42,9 +65,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         ),
       );
     }
+
+    // Извлекаем данные из результата провайдера.
     final day = dashboardDay.value!;
-    final snapshot = day.finance;
-    final data = day.dashboard;
+    final snapshot = day.finance;  // FinanceSnapshot — ключевые финансовые метрики.
+    final data = day.dashboard;   // DashboardData — статистика и списки для UI.
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
@@ -83,15 +108,22 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
           children: [
+            // --- Карточка «Можно потратить» — главный KPI дашборда ---
             _SafeToSpendCard(finance: snapshot),
             const SizedBox(height: 12),
+
+            // --- Сводка: баланс, доходы, платежи, зарплата ---
             _FinanceSummary(finance: snapshot),
             const SizedBox(height: 20),
+
+            // --- Доходы и расходы за текущий месяц ---
             _SectionTitle(
               title: 'За ${DateFormat('LLLL', 'ru').format(_selectedDate)}',
             ),
             _MonthlySummary(data: data),
             const SizedBox(height: 20),
+
+            // --- Ближайшие платежи (до 5 штук) ---
             _SectionTitle(
               title: 'Ближайшие платежи',
               action: TextButton(
@@ -104,9 +136,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               asOfDate: _selectedDate,
             ),
             const SizedBox(height: 20),
+
+            // --- Расходы по категориям с прогресс-барами ---
             _SectionTitle(title: 'Расходы по категориям'),
             _CategoryBreakdown(categories: data.categorySpending),
             const SizedBox(height: 20),
+
+            // --- Последние 5 операций ---
             _SectionTitle(
               title: 'Последние операции',
               action: TextButton(
@@ -126,6 +162,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 ),
               ),
             const SizedBox(height: 20),
+
+            // --- Кнопка быстрого добавления расхода ---
             FilledButton.icon(
               onPressed: () => _quickExpense(context, ref, day),
               icon: const Icon(Icons.add),
@@ -140,10 +178,15 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     );
   }
 
+  /// Открывает диалог выбора даты для просмотра дашборда.
+  ///
+  /// Нижняя граница календаря — первая доступная дата в истории базы,
+  /// верхняя — сегодня. Пользователь не может выбрать будущую дату.
   Future<void> _selectDate() async {
     final today = calendarDate(DateTime.now());
     late final DateTime firstAvailableDate;
     try {
+      // Определяем, с какой даты доступна история.
       firstAvailableDate = calendarDate(
         await ref
             .read(financialPlanningServiceProvider)
@@ -159,6 +202,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     final selectedDate = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
+      // Нижняя граница — не раньше первой доступной даты в истории.
       firstDate: firstAvailableDate.isAfter(today) ? today : firstAvailableDate,
       lastDate: today,
       locale: const Locale('ru'),
@@ -168,6 +212,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     }
   }
 
+  /// Открывает диалог для быстрого добавления расхода.
+  ///
+  /// Пользователь вводит сумму, описание, выбирает счет и категорию.
+  /// После подтверждения расход записывается в базу, а дашборд обновляется.
   Future<void> _quickExpense(
     BuildContext context,
     WidgetRef ref,
@@ -184,6 +232,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       final categories = day.expenseCategories;
       final amount = TextEditingController();
       final description = TextEditingController();
+      // По умолчанию выбираем первый доступный счет.
       var accountId = accounts.first.id;
       int? categoryId;
       final result = await showDialog<bool>(
@@ -285,34 +334,53 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   }
 }
 
+/// Карточка с главным показателем: сколько можно потратить до зарплаты и сегодня.
+///
+/// Показывает:
+/// - Общую сумму, доступную до следующей зарплаты ([safeToSpend]).
+/// - Дневную норму трат ([dailySafeToSpend]).
+/// - Фактические расходы за сегодня ([todayExpenses]).
+/// - Сумму с учётом экономии в прошедшие дни ([availableToday]).
+///
+/// Если [safeToSpend] отрицательный — карточка подсвечивается красным (дефицит).
 class _SafeToSpendCard extends StatelessWidget {
   const _SafeToSpendCard({required this.finance});
+  /// Финансовый снимок с рассчитанными метриками.
   final FinanceSnapshot finance;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    // Если safeToSpend < 0 — дефицит: карточка красная.
     final deficit = finance.safeToSpend != null && finance.safeToSpend! < 0;
     final textStyle = Theme.of(context).textTheme.bodyLarge?.copyWith(
       color: deficit ? scheme.onErrorContainer : scheme.onPrimaryContainer,
       height: 1.4,
     );
+    // Показываем блок про экономию, если в прошедшие дни тратили меньше нормы.
     final showSavings =
         finance.accumulatedBalance != null &&
         finance.accumulatedBalance! > 0 &&
         finance.availableToday != null;
+
+    // Собираем части сообщения динамически в зависимости от доступных данных.
     final messageParts = [
+      // Главный показатель: общая сумма до зарплаты и остаток на сегодня.
       finance.safeToSpend == null
           ? 'Укажите дату зарплаты.'
           : 'Можно потратить до зарплаты '
                 '${_money.format(finance.safeToSpend)}, '
                 'а сегодня '
                 '${finance.dailyLimitBalance == null ? '—' : _money.format(finance.dailyLimitBalance)}.',
+      // Дневная норма трат.
       if (finance.dailySafeToSpend != null)
         'Норма трат за день на сегодня — '
             '${_money.format(finance.dailySafeToSpend)}.',
+      // Фактические расходы за сегодня.
       if (finance.todayExpenses != null)
         'По факту вы потратили ${_money.format(finance.todayExpenses)}.',
+      // Блок про экономию: если в прошедшие дни тратили меньше нормы,
+      // разница добавляется к доступной на сегодня сумме.
       if (showSavings)
         'В прошедшие дни после ЗП вы тратили меньше, поэтому '
             'с учётом экономии сегодня можете потратить '
@@ -330,8 +398,11 @@ class _SafeToSpendCard extends StatelessWidget {
   }
 }
 
+/// Сводная карточка с ключевыми финансовыми метриками:
+/// баланс, ожидаемые доходы, неоплаченные платежи, резерв и дата зарплаты.
 class _FinanceSummary extends StatelessWidget {
   const _FinanceSummary({required this.finance});
+  /// Финансовый снимок с рассчитанными метриками.
   final FinanceSnapshot finance;
 
   @override
@@ -370,8 +441,10 @@ class _FinanceSummary extends StatelessWidget {
   );
 }
 
+/// Карточка с доходами и расходами за текущий месяц.
 class _MonthlySummary extends StatelessWidget {
   const _MonthlySummary({required this.data});
+  /// Данные дашборда со статистикой за месяц.
   final DashboardData data;
 
   @override
@@ -398,6 +471,7 @@ class _MonthlySummary extends StatelessWidget {
   );
 }
 
+/// Отдельная метрика месяца (доходы или расходы) с иконкой и суммой.
 class _MonthlyMetric extends StatelessWidget {
   const _MonthlyMetric({
     required this.label,
@@ -405,9 +479,13 @@ class _MonthlyMetric extends StatelessWidget {
     required this.icon,
     required this.color,
   });
+  /// Название метрики, например «Доходы» или «Расходы».
   final String label;
+  /// Сумма в тенге.
   final int amount;
+  /// Иконка направления: стрелка вниз для доходов, вверх для расходов.
   final IconData icon;
+  /// Цвет иконки и суммы.
   final Color color;
 
   @override
@@ -436,9 +514,14 @@ class _MonthlyMetric extends StatelessWidget {
   );
 }
 
+/// Список ближайших платежей (до 5 штук).
+///
+/// Если платежей нет — показывает пустую карточку с сообщением.
 class _UpcomingPayments extends StatelessWidget {
   const _UpcomingPayments({required this.payments, required this.asOfDate});
+  /// Список платежей, отсортированных по дате.
   final List<DashboardPayment> payments;
+  /// Дата, относительно которой рассчитывается количество дней до платежа.
   final DateTime asOfDate;
 
   @override
@@ -459,9 +542,14 @@ class _UpcomingPayments extends StatelessWidget {
   }
 }
 
+/// Строка одного платежа: название, статус, оставшаяся сумма.
+///
+/// Подсвечивается красным, если платеж просрочен или скоро просрочится.
 class _PaymentRow extends StatelessWidget {
   const _PaymentRow({required this.payment, required this.asOfDate});
+  /// Платеж с данными об occurrence и названии.
   final DashboardPayment payment;
+  /// Дата, относительно которой рассчитываются дни до платежа.
   final DateTime asOfDate;
 
   @override
@@ -501,14 +589,20 @@ class _PaymentRow extends StatelessWidget {
   }
 }
 
+/// Возвращает локализованную строку статуса платежа.
 String _paymentStatus(String status) => switch (status) {
   'PARTIALLY_PAID' => 'Оплачен частично',
   'OVERDUE' => 'Просрочен',
   _ => 'Ожидает',
 };
 
+/// Разбивка расходов по категориям с прогресс-барами.
+///
+/// Категории отсортированы по убыванию суммы. Длина прогресс-бара
+/// относительна: самая большая категория = 100%.
 class _CategoryBreakdown extends StatelessWidget {
   const _CategoryBreakdown({required this.categories});
+  /// Список расходов по категориям, отсортированный по убыванию суммы.
   final List<CategorySpending> categories;
 
   @override
@@ -533,9 +627,12 @@ class _CategoryBreakdown extends StatelessWidget {
   }
 }
 
+/// Строка одной категории: название, сумма и относительный прогресс-бар.
 class _CategoryRow extends StatelessWidget {
   const _CategoryRow({required this.category, required this.maxAmount});
+  /// Данные о расходе по категории.
   final CategorySpending category;
+  /// Максимальная сумма среди всех категорий (для масштабирования прогресс-бара).
   final int maxAmount;
 
   @override
@@ -584,8 +681,10 @@ class _CategoryRow extends StatelessWidget {
   }
 }
 
+/// Список последних 5 операций (доходы, расходы, переводы).
 class _RecentTransactions extends StatelessWidget {
   const _RecentTransactions({required this.transactions});
+  /// Последние транзакции, отсортированные по дате (новые первыми).
   final List<DashboardTransaction> transactions;
 
   @override
@@ -606,8 +705,13 @@ class _RecentTransactions extends StatelessWidget {
   }
 }
 
+/// Строка одной транзакции: описание, счёт, дата и сумма.
+///
+/// Цвет зависит от типа: зелёный для доходов, красный для расходов,
+/// серый для переводов.
 class _TransactionRow extends StatelessWidget {
   const _TransactionRow({required this.item});
+  /// Транзакция с привязанными данными о счёте и категории.
   final DashboardTransaction item;
 
   @override
@@ -662,9 +766,12 @@ class _TransactionRow extends StatelessWidget {
   }
 }
 
+/// Заголовок секции с опциональной кнопкой действия (например «Все»).
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle({required this.title, this.action});
+  /// Текст заголовка.
   final String title;
+  /// Кнопка справа от заголовка (например, переход на полную страницу).
   final Widget? action;
 
   @override
@@ -681,8 +788,10 @@ class _SectionTitle extends StatelessWidget {
   );
 }
 
+/// Пустая карточка-заглушка, показываемая когда список данных пуст.
 class _EmptyCard extends StatelessWidget {
   const _EmptyCard({required this.message});
+  /// Сообщение, отображаемое в центре карточки.
   final String message;
 
   @override
@@ -702,9 +811,12 @@ class _EmptyCard extends StatelessWidget {
   );
 }
 
+/// Строка метрики: название слева, значение справа.
 class _MetricRow extends StatelessWidget {
   const _MetricRow({required this.label, required this.value});
+  /// Название метрики (например «Остаток доступных счетов").
   final String label;
+  /// Значение метрики (например «150 000 ₸").
   final String value;
 
   @override

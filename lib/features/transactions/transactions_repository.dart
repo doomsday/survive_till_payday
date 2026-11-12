@@ -51,13 +51,19 @@ class TransactionsRepository {
 
   final AppDatabase _database;
 
-  Stream<List<Account>> watchAccounts() => (_database.select(
-    _database.accounts,
-  )..orderBy([(row) => OrderingTerm.asc(row.name)])).watch();
+  Stream<List<Account>> watchAccounts() =>
+      (_database.select(_database.accounts)..orderBy([
+            (row) => OrderingTerm.asc(row.displayOrder),
+            (row) => OrderingTerm.asc(row.name),
+          ]))
+          .watch();
 
-  Future<List<Account>> getAccounts() => (_database.select(
-    _database.accounts,
-  )..orderBy([(row) => OrderingTerm.asc(row.name)])).get();
+  Future<List<Account>> getAccounts() =>
+      (_database.select(_database.accounts)..orderBy([
+            (row) => OrderingTerm.asc(row.displayOrder),
+            (row) => OrderingTerm.asc(row.name),
+          ]))
+          .get();
 
   Stream<List<Category>> watchCategories() =>
       (_database.select(_database.categories)

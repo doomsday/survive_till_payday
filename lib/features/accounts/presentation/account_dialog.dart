@@ -287,48 +287,85 @@ class _AccountsSettingsSectionState
               );
             }
             return Card(
-              child: Column(
-                children: [
-                  for (final account in visibleItems)
-                    ListTile(
-                      leading: Icon(
-                        account.type == 'CASH'
-                            ? Icons.account_balance_wallet_outlined
-                            : Icons.account_balance_outlined,
-                      ),
-                      title: Text(account.name),
-                      subtitle: Text(
-                        '${_money.format(account.currentBalance)} · ${account.currency}'
-                        '${account.isNoWithdrawal ? ' · Без снятия' : ''}'
-                        '${account.isActive ? '' : ' · В архиве'}',
-                      ),
-                      trailing: PopupMenuButton<String>(
-                        tooltip: 'Действия со счетом',
-                        onSelected: (action) =>
-                            _handleAccountAction(account, action),
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(
-                            value: 'edit',
-                            child: Text('Изменить'),
-                          ),
-                          PopupMenuItem(
-                            value: account.isActive ? 'archive' : 'restore',
-                            child: Text(
-                              account.isActive
-                                  ? 'Скрыть / удалить'
-                                  : 'Восстановить',
-                            ),
-                          ),
-                        ],
-                      ),
+              child: ReorderableListView.builder(
+                shrinkWrap: true,
+                buildDefaultDragHandles: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: visibleItems.length,
+                onReorderItem: (oldIndex, newIndex) =>
+                    _reorderAccounts(items, visibleItems, oldIndex, newIndex),
+                itemBuilder: (context, index) {
+                  final account = visibleItems[index];
+                  return ListTile(
+                    key: ValueKey(account.id),
+                    leading: Icon(
+                      account.type == 'CASH'
+                          ? Icons.account_balance_wallet_outlined
+                          : Icons.account_balance_outlined,
                     ),
-                ],
+                    title: Text(account.name),
+                    subtitle: Text(
+                      '${_money.format(account.currentBalance)} · ${account.currency}'
+                      '${account.isNoWithdrawal ? ' · Без снятия' : ''}'
+                      '${account.isActive ? '' : ' · В архиве'}',
+                    ),
+                    trailing: PopupMenuButton<String>(
+                      tooltip: 'Действия со счетом',
+                      onSelected: (action) =>
+                          _handleAccountAction(account, action),
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: Text('Изменить'),
+                        ),
+                        PopupMenuItem(
+                          value: account.isActive ? 'archive' : 'restore',
+                          child: Text(
+                            account.isActive
+                                ? 'Скрыть / удалить'
+                                : 'Восстановить',
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
             );
           },
         ),
       ],
     );
+  }
+
+  Future<void> _reorderAccounts(
+    List<Account> allItems,
+    List<Account> visibleItems,
+    int oldIndex,
+    int newIndex,
+  ) async {
+    final reorderedVisible = [...visibleItems];
+    final moved = reorderedVisible.removeAt(oldIndex);
+    reorderedVisible.insert(newIndex, moved);
+    final visibleIds = reorderedVisible.map((account) => account.id).toSet();
+    var visibleIndex = 0;
+    final reorderedAll = [
+      for (final account in allItems)
+        visibleIds.contains(account.id)
+            ? reorderedVisible[visibleIndex++]
+            : account,
+    ];
+    try {
+      await ref
+          .read(accountsRepositoryProvider)
+          .reorder(reorderedAll.map((account) => account.id).toList());
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Не удалось изменить порядок: $error')),
+        );
+      }
+    }
   }
 
   Future<void> _handleAccountAction(Account account, String action) async {
