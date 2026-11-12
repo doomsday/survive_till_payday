@@ -263,6 +263,7 @@ Future<void> _payOccurrence(
       accountId: account.id,
       amount: amount,
       paidDate: DateTime.now(),
+      closeOccurrence: true,
     );
     ref.invalidate(financeSnapshotProvider);
     ref.invalidate(paymentOccurrencesProvider);

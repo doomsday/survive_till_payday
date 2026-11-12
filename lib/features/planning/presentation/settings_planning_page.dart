@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +9,7 @@ import 'package:intl/intl.dart';
 import '../../../core/database/database_backup_service.dart';
 import '../../../core/database/database_provider.dart';
 import '../../accounts/presentation/account_dialog.dart';
+import '../data_export_service.dart';
 import '../planning_providers.dart';
 
 class PlanningSettingsPage extends ConsumerStatefulWidget {
@@ -73,6 +76,14 @@ class _PlanningSettingsPageState extends ConsumerState<PlanningSettingsPage> {
                 title: const Text('База данных'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: _databaseBusy ? null : _openDatabaseDialog,
+              ),
+            ),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.data_object_outlined),
+                title: const Text('Экспорт данных для AI'),
+                subtitle: const Text('JSON с базой и итогами раздела «Обзор»'),
+                onTap: _databaseBusy ? null : _exportAiData,
               ),
             ),
             const SizedBox(height: 24),
@@ -213,6 +224,22 @@ class _PlanningSettingsPageState extends ConsumerState<PlanningSettingsPage> {
       dialogTitle: 'Сохранить резервную копию',
     );
     if (saved != null && mounted) _showDatabaseSuccess('Экспорт завершён.');
+  }
+
+  Future<void> _exportAiData() async {
+    final service = PlanningDataExportService(
+      ref.read(databaseProvider),
+      ref.read(financialPlanningServiceProvider),
+    );
+    final saved = await FilePicker.saveFile(
+      fileName: 'payday-ai-export.json',
+      bytes: utf8.encode(await service.createJson()),
+      mimeType: 'application/json',
+      dialogTitle: 'Сохранить данные для AI',
+    );
+    if (saved != null && mounted) {
+      _showDatabaseSuccess('Экспорт JSON завершён.');
+    }
   }
 
   Future<void> _importDatabase(DatabaseBackupService service) async {

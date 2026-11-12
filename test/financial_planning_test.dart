@@ -63,6 +63,25 @@ void main() {
       expect(result.dailySafeToSpend, isNull);
     });
 
+    test('divides the remaining budget by the remaining payday days', () {
+      final result = calculateFinanceSnapshot(
+        currentBalance: 9498,
+        expectedIncome: 0,
+        reservedPayments: 0,
+        reserve: 0,
+        today: DateTime(2026, 11, 12),
+        nextPayday: DateTime(2026, 12, 1),
+        periodDays: 29,
+        elapsedDays: 10,
+        expensesBeforeToday: 57632,
+        unavoidableExpensesInPeriod: 31381,
+      );
+
+      expect(result.safeToSpend, 9498);
+      expect(result.daysUntilPayday, 19);
+      expect(result.dailySafeToSpend, 499);
+    });
+
     test('carries unused and overspent amounts into today', () {
       final result = calculateFinanceSnapshot(
         currentBalance: 0,
@@ -77,12 +96,12 @@ void main() {
         expensesToday: 3000,
       );
 
-      expect(result.dailySafeToSpend, 1100);
-      expect(result.accumulatedBalance, -2500);
-      expect(result.availableToday, -1400);
+      expect(result.dailySafeToSpend, 0);
+      expect(result.accumulatedBalance, -8000);
+      expect(result.availableToday, -8000);
       expect(result.todayExpenses, 3000);
-      expect(result.dailyLimitBalance, -1900);
-      expect(result.dayBalance, -4400);
+      expect(result.dailyLimitBalance, -3000);
+      expect(result.dayBalance, -11000);
     });
 
     test('adds past savings to today after spending below the daily limit', () {
@@ -99,10 +118,10 @@ void main() {
         expensesToday: 1265,
       );
 
-      expect(result.dailySafeToSpend, 1000);
-      expect(result.accumulatedBalance, 500);
-      expect(result.availableToday, 1500);
-      expect(result.dayBalance, 235);
+      expect(result.dailySafeToSpend, 723);
+      expect(result.accumulatedBalance, -54);
+      expect(result.availableToday, 669);
+      expect(result.dayBalance, -596);
     });
 
     test('has no past savings when spending exactly on the daily limit', () {
@@ -118,8 +137,8 @@ void main() {
         expensesBeforeToday: 2000,
       );
 
-      expect(result.accumulatedBalance, 0);
-      expect(result.availableToday, 1000);
+      expect(result.accumulatedBalance, -400);
+      expect(result.availableToday, 400);
     });
 
     test('does not count past overspending as savings for today', () {
@@ -135,49 +154,43 @@ void main() {
         expensesBeforeToday: 2500,
       );
 
-      expect(result.accumulatedBalance, -500);
-      expect(result.availableToday, 500);
+      expect(result.accumulatedBalance, -1000);
+      expect(result.availableToday, -250);
     });
 
-    test(
-      'unavoidable expenses reduce the payday budget but not daily spending',
-      () {
-        final withoutUnavoidableExpense = calculateFinanceSnapshot(
-          currentBalance: 8000,
-          expectedIncome: 0,
-          reservedPayments: 0,
-          reserve: 0,
-          today: today,
-          nextPayday: DateTime(2026, 11, 12),
-          periodDays: 10,
-          elapsedDays: 2,
-          expensesBeforeToday: 1000,
-          expensesToday: 500,
-        );
-        final withUnavoidableExpense = calculateFinanceSnapshot(
-          currentBalance: 3000,
-          expectedIncome: 0,
-          reservedPayments: 0,
-          reserve: 0,
-          today: today,
-          nextPayday: DateTime(2026, 11, 12),
-          periodDays: 10,
-          elapsedDays: 2,
-          expensesBeforeToday: 1000,
-          expensesToday: 500,
-          unavoidableExpensesInPeriod: 5000,
-        );
+    test('unavoidable expenses reduce the remaining daily spending budget', () {
+      final withoutUnavoidableExpense = calculateFinanceSnapshot(
+        currentBalance: 8000,
+        expectedIncome: 0,
+        reservedPayments: 0,
+        reserve: 0,
+        today: today,
+        nextPayday: DateTime(2026, 11, 12),
+        periodDays: 10,
+        elapsedDays: 2,
+        expensesBeforeToday: 1000,
+        expensesToday: 500,
+      );
+      final withUnavoidableExpense = calculateFinanceSnapshot(
+        currentBalance: 3000,
+        expectedIncome: 0,
+        reservedPayments: 0,
+        reserve: 0,
+        today: today,
+        nextPayday: DateTime(2026, 11, 12),
+        periodDays: 10,
+        elapsedDays: 2,
+        expensesBeforeToday: 1000,
+        expensesToday: 500,
+        unavoidableExpensesInPeriod: 5000,
+      );
 
-        expect(withUnavoidableExpense.safeToSpend, 3000);
-        expect(withUnavoidableExpense.dailySafeToSpend, 950);
-        expect(
-          withUnavoidableExpense.dailySafeToSpend,
-          withoutUnavoidableExpense.dailySafeToSpend,
-        );
-        expect(withUnavoidableExpense.todayExpenses, 500);
-        expect(withUnavoidableExpense.dayBalance, 1350);
-      },
-    );
+      expect(withUnavoidableExpense.safeToSpend, 3000);
+      expect(withUnavoidableExpense.dailySafeToSpend, 300);
+      expect(withoutUnavoidableExpense.dailySafeToSpend, 800);
+      expect(withUnavoidableExpense.todayExpenses, 500);
+      expect(withUnavoidableExpense.dayBalance, -600);
+    });
   });
 
   group('scheduled dates', () {

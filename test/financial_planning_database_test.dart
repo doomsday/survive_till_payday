@@ -53,7 +53,7 @@ void main() {
       expect(snapshot.reservedPayments, 30000);
       expect(snapshot.safeToSpend, 50000);
       final dailyLimitBeforePayment = snapshot.dailySafeToSpend;
-      expect(dailyLimitBeforePayment, 1666);
+      expect(dailyLimitBeforePayment, 10000);
       final dayBalanceBeforePayment = snapshot.dayBalance;
 
       final dueToday = after.firstWhere((item) => item.dueDate == today);
@@ -90,6 +90,50 @@ void main() {
     },
   );
 
+  test('manual payment closes a variable amount occurrence', () async {
+    final accountId = await addAccount();
+    await planning.createRecurringPayment(
+      name: 'ЕРЦ',
+      amount: 20000,
+      frequency: 'MONTHLY',
+      startDate: DateTime(2026, 11, 10),
+    );
+    await planning.generateOccurrences(now: DateTime(2026, 11, 12));
+
+    final occurrences = await (database.select(
+      database.paymentOccurrences,
+    )..orderBy([(row) => OrderingTerm.asc(row.dueDate)])).get();
+    final overdue = occurrences.firstWhere(
+      (item) => item.dueDate == DateTime(2026, 11, 10),
+    );
+    await planning.payOccurrence(
+      occurrence: overdue,
+      accountId: accountId,
+      amount: 16339,
+      paidDate: DateTime(2026, 11, 12),
+      closeOccurrence: true,
+    );
+
+    final updated = await (database.select(
+      database.paymentOccurrences,
+    )..where((row) => row.id.equals(overdue.id))).getSingle();
+    expect(updated.status, 'PAID');
+    expect(updated.paidAmount, 16339);
+
+    final next =
+        (await (database.select(database.paymentOccurrences)
+                  ..where(
+                    (row) => row.recurringPaymentId.equals(
+                      overdue.recurringPaymentId,
+                    ),
+                  )
+                  ..orderBy([(row) => OrderingTerm.asc(row.dueDate)]))
+                .get())
+            .firstWhere((item) => item.status != 'PAID');
+    expect(next.dueDate, DateTime(2026, 12, 10));
+    expect(next.expectedAmount, 20000);
+  });
+
   test(
     'no-withdrawal account balances do not increase available limits',
     () async {
@@ -116,7 +160,7 @@ void main() {
 
       expect(snapshot.currentBalance, 60000);
       expect(snapshot.safeToSpend, 60000);
-      expect(snapshot.dailySafeToSpend, 2000);
+      expect(snapshot.dailySafeToSpend, 12000);
     },
   );
 
@@ -163,11 +207,11 @@ void main() {
 
       final snapshot = await planning.getSnapshot(now: today);
 
-      expect(snapshot.dailySafeToSpend, 4148);
-      expect(snapshot.accumulatedBalance, 81256);
-      expect(snapshot.availableToday, 85404);
+      expect(snapshot.dailySafeToSpend, 20000);
+      expect(snapshot.accumulatedBalance, 430000);
+      expect(snapshot.availableToday, 450000);
       expect(snapshot.todayExpenses, 2000);
-      expect(snapshot.dayBalance, 83404);
+      expect(snapshot.dayBalance, 448000);
 
       await TransactionsRepository(database).addTransaction(
         type: 'EXPENSE',
@@ -184,7 +228,7 @@ void main() {
       );
       expect(
         afterUnavoidableExpense.dailySafeToSpend,
-        snapshot.dailySafeToSpend,
+        snapshot.dailySafeToSpend! - 2000,
       );
       expect(afterUnavoidableExpense.todayExpenses, 2000);
     },

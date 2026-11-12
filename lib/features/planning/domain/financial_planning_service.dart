@@ -124,34 +124,46 @@ class FinanceSnapshot {
 
   /// Текущий баланс всех активных счетов (без no-withdrawal).
   final int currentBalance;
+
   /// Сумма ожидаемых доходов до следующей зарплаты.
   final int expectedIncome;
+
   /// Сумма неоплаченных платежей до следующей зарплаты.
   final int reservedPayments;
+
   /// Настроенный финансовый резерв (не трогается).
   final int reserve;
+
   /// Дата следующей зарплаты.
   final DateTime? nextPayday;
+
   /// Количество дней до следующей зарплаты.
   final int? daysUntilPayday;
+
   /// Общая сумма, которую можно потратить до зарплаты.
   /// Формула: `currentBalance + expectedIncome - reservedPayments - reserve`.
   final int? safeToSpend;
+
   /// Дневная норма трат: [safeToSpend] / [daysUntilPayday].
   /// Может быть скорректирована с учётом фактических расходов цикла.
   final int? dailySafeToSpend;
+
   /// Накопленная «экономия» за прошедшие дни цикла.
   /// Формула: `dailySafeToSpend × elapsedDays − expensesBeforeToday`.
   /// Положительная — тратили меньше нормы, отрицательная — больше.
   final int? accumulatedBalance;
+
   /// Сколько можно потратить сегодня с учётом экономии.
   /// Формула: `dailySafeToSpend + accumulatedBalance`.
   final int? availableToday;
+
   /// Фактические расходы за сегодня (ручные, не неизбежные).
   final int? todayExpenses;
+
   /// Остаток дневной нормы после расходов сегодня.
   /// Формула: `dailySafeToSpend − todayExpenses`.
   final int? dailyLimitBalance;
+
   /// Остаток доступных средств на сегодня с учётом экономии.
   /// Формула: `availableToday − todayExpenses`.
   final int? dayBalance;
@@ -168,8 +180,10 @@ class CategorySpending {
 
   /// Название категории.
   final String name;
+
   /// Цвет категории (ARGB int).
   final int color;
+
   /// Сумма расходов по категории за месяц.
   final int amount;
 }
@@ -185,10 +199,13 @@ class DashboardTransaction {
 
   /// Сама транзакция из базы.
   final Transaction transaction;
+
   /// Название счёта, с которого была операция.
   final String accountName;
+
   /// Название категории (может быть `null`).
   final String? categoryName;
+
   /// Цвет категории (может быть `null`).
   final int? categoryColor;
 }
@@ -199,6 +216,7 @@ class DashboardPayment {
 
   /// Конкретное выполнение recurring платежа.
   final PaymentOccurrence occurrence;
+
   /// Название recurring платежа.
   final String name;
 }
@@ -218,14 +236,19 @@ class DashboardData {
 
   /// Сумма доходов за текущий месяц.
   final int monthIncome;
+
   /// Сумма расходов за текущий месяц.
   final int monthExpense;
+
   /// Расходы по категориям, отсортированные по убыванию суммы.
   final List<CategorySpending> categorySpending;
+
   /// Последние 5 транзакций, отсортированные по дате (новые первыми).
   final List<DashboardTransaction> recentTransactions;
+
   /// Количество транзакций в этом месяце, не вошедших в [recentTransactions].
   final int remainingTransactionsThisMonth;
+
   /// Ближайшие 5 платежей (UPCOMING, PARTIALLY_PAID, OVERDUE).
   final List<DashboardPayment> upcomingPayments;
 }
@@ -244,10 +267,13 @@ class DashboardDay {
 
   /// Финансовый снимок: сколько можно потратить.
   final FinanceSnapshot finance;
+
   /// Данные дашборда: статистика, операции, платежи.
   final DashboardData dashboard;
+
   /// Активные счета, доступные для быстрого добавления расхода.
   final List<Account> accounts;
+
   /// Категории расходов для выбора при добавлении расхода.
   final List<Category> expenseCategories;
 }
@@ -260,10 +286,8 @@ class DashboardDay {
 /// Алгоритм расчёта:
 /// 1. **safeToSpend** = `currentBalance + expectedIncome - reservedPayments - reserve`
 ///    — общая сумма, доступная до зарплаты.
-/// 2. **dailyLimit** (dailySafeToSpend) — дневная норма трат.
-///    Если известен период цикла (periodDays), норма рассчитывается с учётом
-///    фактических расходов: `(safeToSpend + expensesBeforeToday + expensesToday + unavoidable) / periodDays`.
-///    Иначе: `safeToSpend / daysUntilPayday`.
+/// 2. **dailyLimit** (dailySafeToSpend) — дневная норма трат до зарплаты:
+///    `safeToSpend / daysUntilPayday`.
 /// 3. **accumulatedBalance** — «экономия» за прошедшие дни:
 ///    `dailyLimit × elapsedDays − expensesBeforeToday`.
 /// 4. **availableToday** — сколько можно потратить сегодня с учётом экономии:
@@ -311,20 +335,11 @@ FinanceSnapshot calculateFinanceSnapshot({
     _ => currentBalance + expectedIncome - reservedPayments - reserve,
   };
 
-  // Шаг 2: Дневная норма трат.
-  // Если известен период цикла — учитываем фактические расходы,
-  // чтобы перераспределить бюджет равномерно.
-  final hasPeriod = periodDays != null && periodDays > 0;
-  final periodBudget = safeToSpend == null || !hasPeriod
-      ? null
-      : safeToSpend +
-            expensesBeforeToday +
-            expensesToday +
-            unavoidableExpensesInPeriod;
+  // Шаг 2: Дневная норма оставшегося бюджета до зарплаты.
+  // Прошлые расходы уже отражены в currentBalance и не должны
+  // перераспределять safeToSpend на весь завершённый период.
   final dailyLimit = safeToSpend == null || days == null || days <= 0
       ? null
-      : hasPeriod
-      ? (periodBudget! < 0 ? 0 : periodBudget) ~/ periodDays
       : (safeToSpend < 0 ? 0 : safeToSpend) ~/ days;
 
   // Шаг 3: Накопленная «экономия» за прошедшие дни цикла.
@@ -991,7 +1006,8 @@ class FinancialPlanningService {
     // expensesToday — расходы за сегодня.
     int? periodDays;
     var elapsedDays = 0;
-    var expensesBeforeToday = 0;  // сумма расходов (без учёта неизбежных) за прошедшие дни цикла
+    var expensesBeforeToday =
+        0; // сумма расходов (без учёта неизбежных) за прошедшие дни цикла
     var expensesToday = 0;
     var unavoidableExpensesInPeriod = 0;
     if (nextPayday != null && previousPayday != null) {
@@ -1596,6 +1612,7 @@ class FinancialPlanningService {
     required int accountId,
     required int amount,
     required DateTime paidDate,
+    bool closeOccurrence = false,
   }) async {
     await db.transaction(() async {
       final currentOccurrence = await (db.select(
@@ -1649,7 +1666,7 @@ class FinancialPlanningService {
         PaymentOccurrencesCompanion(
           paidAmount: Value(totalPaid),
           status: Value(
-            totalPaid == currentOccurrence.expectedAmount
+            closeOccurrence || totalPaid == currentOccurrence.expectedAmount
                 ? 'PAID'
                 : 'PARTIALLY_PAID',
           ),
