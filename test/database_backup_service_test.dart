@@ -171,9 +171,13 @@ void main() {
           'ALTER TABLE accounts DROP COLUMN is_no_withdrawal',
         );
         oldDatabase.execute('ALTER TABLE accounts DROP COLUMN is_deposit');
+        oldDatabase.execute('ALTER TABLE accounts DROP COLUMN display_order');
         oldDatabase.execute('ALTER TABLE categories DROP COLUMN is_hidden');
         oldDatabase.execute(
           'ALTER TABLE transactions DROP COLUMN is_unavoidable',
+        );
+        oldDatabase.execute(
+          'ALTER TABLE recurring_payments DROP COLUMN is_unavoidable',
         );
         oldDatabase.execute('PRAGMA user_version = 4');
       } finally {
@@ -278,9 +282,13 @@ void main() {
           'ALTER TABLE accounts DROP COLUMN is_no_withdrawal',
         );
         oldDatabase.execute('ALTER TABLE accounts DROP COLUMN is_deposit');
+        oldDatabase.execute('ALTER TABLE accounts DROP COLUMN display_order');
         oldDatabase.execute('ALTER TABLE categories DROP COLUMN is_hidden');
         oldDatabase.execute(
           'ALTER TABLE transactions DROP COLUMN is_unavoidable',
+        );
+        oldDatabase.execute(
+          'ALTER TABLE recurring_payments DROP COLUMN is_unavoidable',
         );
         oldDatabase.execute('PRAGMA user_version = 5');
       } finally {
@@ -421,10 +429,16 @@ void main() {
           legacyDatabase.execute('DROP TRIGGER "$trigger"');
         }
         legacyDatabase.execute('DROP TABLE database_metadata');
+        legacyDatabase.execute(
+          'ALTER TABLE accounts DROP COLUMN display_order',
+        );
         legacyDatabase.execute('ALTER TABLE accounts DROP COLUMN is_deposit');
         legacyDatabase.execute('ALTER TABLE categories DROP COLUMN is_hidden');
         legacyDatabase.execute(
           'ALTER TABLE transactions DROP COLUMN is_unavoidable',
+        );
+        legacyDatabase.execute(
+          'ALTER TABLE recurring_payments DROP COLUMN is_unavoidable',
         );
         legacyDatabase.execute(
           "INSERT OR REPLACE INTO app_settings (key, value) "

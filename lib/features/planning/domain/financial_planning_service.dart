@@ -1252,6 +1252,7 @@ class FinancialPlanningService {
     int? accountId,
     int? paymentDay,
     bool isAutoPay = false,
+    bool isUnavoidable = false,
     String description = '',
   }) async {
     if (amount <= 0) throw ArgumentError.value(amount, 'amount');
@@ -1270,6 +1271,7 @@ class FinancialPlanningService {
             paymentDay: Value(paymentDay),
             startDate: start,
             isAutoPay: Value(isAutoPay),
+            isUnavoidable: Value(isUnavoidable),
             description: Value(description),
           ),
         );
@@ -1290,6 +1292,7 @@ class FinancialPlanningService {
     int? accountId,
     int? paymentDay,
     bool? isAutoPay,
+    bool? isUnavoidable,
     required bool isActive,
   }) async {
     if (amount <= 0) throw ArgumentError.value(amount, 'amount');
@@ -1302,6 +1305,7 @@ class FinancialPlanningService {
         throw StateError('Recurring payment $id not found.');
       }
       final autoPayEnabled = isAutoPay ?? existing.isAutoPay;
+      final unavoidableEnabled = isUnavoidable ?? existing.isUnavoidable;
       await _validateRecurringCategory(
         categoryId,
         allowArchivedCategoryId: categoryId == existing.categoryId
@@ -1322,6 +1326,7 @@ class FinancialPlanningService {
           startDate: Value(calendarDate(startDate)),
           isActive: Value(isActive),
           isAutoPay: Value(autoPayEnabled),
+          isUnavoidable: Value(unavoidableEnabled),
         ),
       );
       if (!isActive) {
@@ -1531,6 +1536,7 @@ class FinancialPlanningService {
                   description: Value(schedule.name),
                   transactionDate: calendarDate(occurrence.dueDate),
                   linkedPaymentOccurrenceId: Value(occurrence.id),
+                  isUnavoidable: Value(schedule.isUnavoidable),
                 ),
               );
           await (db.update(
@@ -1651,6 +1657,7 @@ class FinancialPlanningService {
               description: Value(schedule.name),
               transactionDate: calendarDate(paidDate),
               linkedPaymentOccurrenceId: Value(currentOccurrence.id),
+              isUnavoidable: Value(schedule.isUnavoidable),
             ),
           );
       await (db.update(

@@ -66,6 +66,8 @@ class RecurringPayments extends Table {
   DateTimeColumn get endDate => dateTime().nullable()();
   BoolColumn get isActive => boolean().withDefault(const Constant(true))();
   BoolColumn get isAutoPay => boolean().withDefault(const Constant(false))();
+  BoolColumn get isUnavoidable =>
+      boolean().withDefault(const Constant(false))();
   TextColumn get description => text().withDefault(const Constant(''))();
 }
 
@@ -169,7 +171,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   static const historyTables = {
     'accounts': [
@@ -223,6 +225,7 @@ class AppDatabase extends _$AppDatabase {
       'end_date',
       'is_active',
       'is_auto_pay',
+      'is_unavoidable',
       'description',
     ],
     'payment_occurrences': [
@@ -283,6 +286,9 @@ class AppDatabase extends _$AppDatabase {
                 ..where((account) => account.id.equals(existing[index].id)))
               .write(AccountsCompanion(displayOrder: Value(index)));
         }
+      }
+      if (from < 11) {
+        await m.addColumn(recurringPayments, recurringPayments.isUnavoidable);
       }
       if (from < 2) await _seedDefaultCategories();
     },

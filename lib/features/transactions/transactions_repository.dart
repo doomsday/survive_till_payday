@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -50,6 +52,7 @@ class TransactionsRepository {
   TransactionsRepository(this._database);
 
   final AppDatabase _database;
+  static const _customOrderKey = 'transactions_custom_order';
 
   Stream<List<Account>> watchAccounts() =>
       (_database.select(_database.accounts)..orderBy([
@@ -84,6 +87,7 @@ class TransactionsRepository {
           _database.transactions,
           _database.accounts,
           _database.categories,
+          _database.appSettings,
         },
       )
       .watch()
@@ -117,7 +121,7 @@ class TransactionsRepository {
     final normalizedFrom = from == null ? null : calendarDate(from);
     final normalizedUntil = until == null ? null : calendarDate(until);
     final search = query.trim().toLowerCase();
-    return [
+    final entries = [
       for (final transaction in transactions)
         if (transaction.type != 'TRANSFER' ||
             transaction.transferGroupId == transaction.id)
@@ -173,7 +177,77 @@ class TransactionsRepository {
                             transaction.transferGroupId == transaction.id,
                       ),
     ];
+    return _applyCustomOrder(entries, await _getCustomOrder());
   }
+
+  Future<void> saveDateOrder(DateTime date, List<int> transactionIds) async {
+    final order = await _getCustomOrder();
+    order[_dateKey(date)] = transactionIds;
+    await _database
+        .into(_database.appSettings)
+        .insertOnConflictUpdate(
+          AppSettingsCompanion.insert(
+            key: _customOrderKey,
+            value: jsonEncode(order),
+          ),
+        );
+  }
+
+  Future<Map<String, List<int>>> _getCustomOrder() async {
+    final setting = await (_database.select(
+      _database.appSettings,
+    )..where((row) => row.key.equals(_customOrderKey))).getSingleOrNull();
+    if (setting == null) return {};
+    try {
+      final decoded = jsonDecode(setting.value);
+      if (decoded is! Map) return {};
+      return {
+        for (final entry in decoded.entries)
+          if (entry.key is String && entry.value is List)
+            entry.key as String: [
+              for (final id in entry.value)
+                if (id is num) id.toInt(),
+            ],
+      };
+    } on FormatException {
+      return {};
+    }
+  }
+
+  List<TransactionEntry> _applyCustomOrder(
+    List<TransactionEntry> entries,
+    Map<String, List<int>> order,
+  ) {
+    final byDate = <String, List<TransactionEntry>>{};
+    for (final entry in entries) {
+      byDate
+          .putIfAbsent(_dateKey(entry.transaction.transactionDate), () => [])
+          .add(entry);
+    }
+    final result = <TransactionEntry>[];
+    for (final group in byDate.entries) {
+      final savedIds = order[group.key] ?? const <int>[];
+      final ranks = {
+        for (var index = 0; index < savedIds.length; index++)
+          savedIds[index]: index,
+      };
+      group.value.sort((first, second) {
+        final firstRank = ranks[first.transaction.id];
+        final secondRank = ranks[second.transaction.id];
+        if (firstRank == null && secondRank == null) return 0;
+        if (firstRank == null) return 1;
+        if (secondRank == null) return -1;
+        return firstRank.compareTo(secondRank);
+      });
+      result.addAll(group.value);
+    }
+    return result;
+  }
+
+  String _dateKey(DateTime date) =>
+      '${date.year.toString().padLeft(4, '0')}-'
+      '${date.month.toString().padLeft(2, '0')}-'
+      '${date.day.toString().padLeft(2, '0')}';
 
   String? _transferPeer(
     Transaction transaction,
@@ -522,7 +596,9 @@ class TransactionsRepository {
         'Updated transaction amount must not exceed the payment amount due.',
       );
     }
-    final status = newPaidAmount == occurrence.expectedAmount
+    final status = occurrence.status == 'PAID' && newPaidAmount > 0
+        ? 'PAID'
+        : newPaidAmount == occurrence.expectedAmount
         ? 'PAID'
         : newPaidAmount > 0
         ? 'PARTIALLY_PAID'

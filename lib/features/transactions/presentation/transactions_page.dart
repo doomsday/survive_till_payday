@@ -28,6 +28,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   int? _accountId;
   int? _categoryId;
   DateTimeRange? _dateRange;
+  final _pendingOrders = <String, List<int>>{};
 
   @override
   void dispose() {
@@ -180,12 +181,18 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                     ref.invalidate(transactionEntriesProvider);
                     await ref.read(transactionEntriesProvider.future);
                   },
-                  child: ListView.builder(
+                  child: ReorderableListView.builder(
                     padding: const EdgeInsets.fromLTRB(12, 4, 12, 96),
                     itemCount: filtered.length + 1,
+                    buildDefaultDragHandles: false,
+                    onReorderItem: (oldIndex, newIndex) =>
+                        _reorderEntries(filtered, oldIndex, newIndex),
                     itemBuilder: (context, index) {
                       if (index == 0) {
-                        return _TransactionSummary(entries: filtered);
+                        return KeyedSubtree(
+                          key: ValueKey('transaction-summary'),
+                          child: _TransactionSummary(entries: filtered),
+                        );
                       }
                       final entry = filtered[index - 1];
                       final previous = index > 1 ? filtered[index - 2] : null;
@@ -195,25 +202,66 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                             entry.transaction.transactionDate,
                             previous.transaction.transactionDate,
                           );
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (showDate)
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(8, 18, 8, 6),
-                              child: Text(
-                                _monthDate.format(
-                                  entry.transaction.transactionDate,
+                      final dailyExpense = showDate
+                          ? filtered
+                                .where(
+                                  (item) =>
+                                      _sameDate(
+                                        item.transaction.transactionDate,
+                                        entry.transaction.transactionDate,
+                                      ) &&
+                                      item.transaction.type == 'EXPENSE',
+                                )
+                                .fold<int>(
+                                  0,
+                                  (total, item) =>
+                                      total + item.transaction.amount,
+                                )
+                          : 0;
+                      return KeyedSubtree(
+                        key: ValueKey(entry.transaction.id),
+                        child: ReorderableDragStartListener(
+                          index: index,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (showDate)
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    8,
+                                    18,
+                                    8,
+                                    6,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          _monthDate.format(
+                                            entry.transaction.transactionDate,
+                                          ),
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleSmall,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Потрачено: ${_money.format(dailyExpense)}',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall,
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                style: Theme.of(context).textTheme.titleSmall,
+                              _TransactionTile(
+                                entry: entry,
+                                onEdit: () => _editTransaction(entry),
+                                onDelete: () => _deleteTransaction(entry),
                               ),
-                            ),
-                          _TransactionTile(
-                            entry: entry,
-                            onEdit: () => _editTransaction(entry),
-                            onDelete: () => _deleteTransaction(entry),
+                            ],
                           ),
-                        ],
+                        ),
                       );
                     },
                   ),
@@ -235,7 +283,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
   List<TransactionEntry> _filterEntries(List<TransactionEntry> entries) {
     final query = _search.text.trim().toLowerCase();
-    return [
+    final filtered = [
       for (final entry in entries)
         if (_type == 'ALL' || entry.transaction.type == _type)
           if (_accountId == null ||
@@ -259,7 +307,78 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                     (entry.categoryName?.toLowerCase() ?? '').contains(query))
                   entry,
     ];
+    for (final group in _groupEntriesByDate(filtered).entries) {
+      final savedIds = _pendingOrders[group.key];
+      if (savedIds == null) continue;
+      final ranks = {
+        for (var index = 0; index < savedIds.length; index++)
+          savedIds[index]: index,
+      };
+      group.value.sort((first, second) {
+        final firstRank = ranks[first.transaction.id];
+        final secondRank = ranks[second.transaction.id];
+        if (firstRank == null && secondRank == null) return 0;
+        if (firstRank == null) return 1;
+        if (secondRank == null) return -1;
+        return firstRank.compareTo(secondRank);
+      });
+    }
+    return filtered;
   }
+
+  void _reorderEntries(
+    List<TransactionEntry> entries,
+    int oldIndex,
+    int newIndex,
+  ) {
+    if (oldIndex == 0 || newIndex == 0) return;
+    final oldEntry = entries[oldIndex - 1];
+    final targetIndex = newIndex - 1;
+    if (targetIndex < 0 || targetIndex >= entries.length) return;
+    final targetEntry = entries[targetIndex];
+    if (!_sameDate(
+      oldEntry.transaction.transactionDate,
+      targetEntry.transaction.transactionDate,
+    )) {
+      _showMessage(
+        'Операции можно менять местами только в пределах одной даты',
+      );
+      return;
+    }
+    final reordered = [...entries]..removeAt(oldIndex - 1);
+    reordered.insert(targetIndex, oldEntry);
+    final date = oldEntry.transaction.transactionDate;
+    final ids = [
+      for (final entry in reordered)
+        if (_sameDate(entry.transaction.transactionDate, date))
+          entry.transaction.id,
+    ];
+    final dateKey = _dateKey(date);
+    setState(() => _pendingOrders[dateKey] = ids);
+    ref
+        .read(transactionsRepositoryProvider)
+        .saveDateOrder(date, ids)
+        .catchError((error) {
+          if (mounted) _showMessage('Не удалось сохранить порядок: $error');
+        });
+  }
+
+  Map<String, List<TransactionEntry>> _groupEntriesByDate(
+    List<TransactionEntry> entries,
+  ) {
+    final groups = <String, List<TransactionEntry>>{};
+    for (final entry in entries) {
+      groups
+          .putIfAbsent(_dateKey(entry.transaction.transactionDate), () => [])
+          .add(entry);
+    }
+    return groups;
+  }
+
+  String _dateKey(DateTime date) =>
+      '${date.year.toString().padLeft(4, '0')}-'
+      '${date.month.toString().padLeft(2, '0')}-'
+      '${date.day.toString().padLeft(2, '0')}';
 
   void _clearFilters() {
     _search.clear();

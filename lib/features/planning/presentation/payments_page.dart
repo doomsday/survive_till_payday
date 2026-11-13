@@ -195,10 +195,14 @@ class _RecurringPaymentTile extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
-              if (isAutoPay) ...[
+              if (isAutoPay || payment.isUnavoidable) ...[
                 const SizedBox(height: 2),
                 Text(
-                  'Автооплата',
+                  [
+                    if (isAutoPay) 'Автооплата',
+                    if (payment.isUnavoidable)
+                      isAutoPay ? 'неизбежная трата' : 'Неизбежная трата',
+                  ].join(', '),
                   style: Theme.of(context).textTheme.bodySmall
                       ?.copyWith(color: Theme.of(context).colorScheme.primary),
                 ),
@@ -497,6 +501,7 @@ class _RecurringFormState extends ConsumerState<_RecurringForm> {
   int? _categoryId;
   int? _accountId;
   bool _isAutoPay = false;
+  bool _isUnavoidable = false;
   bool _isActive = true;
   String? _error;
 
@@ -511,6 +516,7 @@ class _RecurringFormState extends ConsumerState<_RecurringForm> {
     _categoryId = item?.categoryId;
     _accountId = item?.accountId;
     _isAutoPay = item?.isAutoPay ?? false;
+    _isUnavoidable = item == null ? true : item.isUnavoidable;
     _isActive = item?.isActive ?? true;
   }
 
@@ -645,6 +651,15 @@ class _RecurringFormState extends ConsumerState<_RecurringForm> {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Неизбежная трата'),
+              subtitle: const Text(
+                'Оплаченные операции по этому платежу будут отмечены как неизбежные.',
+              ),
+              value: _isUnavoidable,
+              onChanged: (value) => setState(() => _isUnavoidable = value),
+            ),
             const SizedBox(height: 12),
             DropdownButtonFormField<PlanningFrequency>(
               initialValue: _frequency,
@@ -729,6 +744,7 @@ class _RecurringFormState extends ConsumerState<_RecurringForm> {
           categoryId: _categoryId,
           accountId: _accountId,
           isAutoPay: _isAutoPay,
+          isUnavoidable: _isUnavoidable,
         );
       } else {
         await service.updateRecurringPayment(
@@ -741,6 +757,7 @@ class _RecurringFormState extends ConsumerState<_RecurringForm> {
           categoryId: _categoryId,
           accountId: _accountId,
           isAutoPay: _isAutoPay,
+          isUnavoidable: _isUnavoidable,
           isActive: _isActive,
         );
       }

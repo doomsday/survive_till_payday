@@ -2141,6 +2141,21 @@ class $RecurringPaymentsTable extends RecurringPayments
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _isUnavoidableMeta = const VerificationMeta(
+    'isUnavoidable',
+  );
+  @override
+  late final GeneratedColumn<bool> isUnavoidable = GeneratedColumn<bool>(
+    'is_unavoidable',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_unavoidable" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _descriptionMeta = const VerificationMeta(
     'description',
   );
@@ -2166,6 +2181,7 @@ class $RecurringPaymentsTable extends RecurringPayments
     endDate,
     isActive,
     isAutoPay,
+    isUnavoidable,
     description,
   ];
   @override
@@ -2251,6 +2267,15 @@ class $RecurringPaymentsTable extends RecurringPayments
         isAutoPay.isAcceptableOrUnknown(data['is_auto_pay']!, _isAutoPayMeta),
       );
     }
+    if (data.containsKey('is_unavoidable')) {
+      context.handle(
+        _isUnavoidableMeta,
+        isUnavoidable.isAcceptableOrUnknown(
+          data['is_unavoidable']!,
+          _isUnavoidableMeta,
+        ),
+      );
+    }
     if (data.containsKey('description')) {
       context.handle(
         _descriptionMeta,
@@ -2313,6 +2338,10 @@ class $RecurringPaymentsTable extends RecurringPayments
         DriftSqlType.bool,
         data['${effectivePrefix}is_auto_pay'],
       )!,
+      isUnavoidable: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_unavoidable'],
+      )!,
       description: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}description'],
@@ -2339,6 +2368,7 @@ class RecurringPayment extends DataClass
   final DateTime? endDate;
   final bool isActive;
   final bool isAutoPay;
+  final bool isUnavoidable;
   final String description;
   const RecurringPayment({
     required this.id,
@@ -2352,6 +2382,7 @@ class RecurringPayment extends DataClass
     this.endDate,
     required this.isActive,
     required this.isAutoPay,
+    required this.isUnavoidable,
     required this.description,
   });
   @override
@@ -2376,6 +2407,7 @@ class RecurringPayment extends DataClass
     }
     map['is_active'] = Variable<bool>(isActive);
     map['is_auto_pay'] = Variable<bool>(isAutoPay);
+    map['is_unavoidable'] = Variable<bool>(isUnavoidable);
     map['description'] = Variable<String>(description);
     return map;
   }
@@ -2401,6 +2433,7 @@ class RecurringPayment extends DataClass
           : Value(endDate),
       isActive: Value(isActive),
       isAutoPay: Value(isAutoPay),
+      isUnavoidable: Value(isUnavoidable),
       description: Value(description),
     );
   }
@@ -2422,6 +2455,7 @@ class RecurringPayment extends DataClass
       endDate: serializer.fromJson<DateTime?>(json['endDate']),
       isActive: serializer.fromJson<bool>(json['isActive']),
       isAutoPay: serializer.fromJson<bool>(json['isAutoPay']),
+      isUnavoidable: serializer.fromJson<bool>(json['isUnavoidable']),
       description: serializer.fromJson<String>(json['description']),
     );
   }
@@ -2440,6 +2474,7 @@ class RecurringPayment extends DataClass
       'endDate': serializer.toJson<DateTime?>(endDate),
       'isActive': serializer.toJson<bool>(isActive),
       'isAutoPay': serializer.toJson<bool>(isAutoPay),
+      'isUnavoidable': serializer.toJson<bool>(isUnavoidable),
       'description': serializer.toJson<String>(description),
     };
   }
@@ -2456,6 +2491,7 @@ class RecurringPayment extends DataClass
     Value<DateTime?> endDate = const Value.absent(),
     bool? isActive,
     bool? isAutoPay,
+    bool? isUnavoidable,
     String? description,
   }) => RecurringPayment(
     id: id ?? this.id,
@@ -2469,6 +2505,7 @@ class RecurringPayment extends DataClass
     endDate: endDate.present ? endDate.value : this.endDate,
     isActive: isActive ?? this.isActive,
     isAutoPay: isAutoPay ?? this.isAutoPay,
+    isUnavoidable: isUnavoidable ?? this.isUnavoidable,
     description: description ?? this.description,
   );
   RecurringPayment copyWithCompanion(RecurringPaymentsCompanion data) {
@@ -2488,6 +2525,9 @@ class RecurringPayment extends DataClass
       endDate: data.endDate.present ? data.endDate.value : this.endDate,
       isActive: data.isActive.present ? data.isActive.value : this.isActive,
       isAutoPay: data.isAutoPay.present ? data.isAutoPay.value : this.isAutoPay,
+      isUnavoidable: data.isUnavoidable.present
+          ? data.isUnavoidable.value
+          : this.isUnavoidable,
       description: data.description.present
           ? data.description.value
           : this.description,
@@ -2508,6 +2548,7 @@ class RecurringPayment extends DataClass
           ..write('endDate: $endDate, ')
           ..write('isActive: $isActive, ')
           ..write('isAutoPay: $isAutoPay, ')
+          ..write('isUnavoidable: $isUnavoidable, ')
           ..write('description: $description')
           ..write(')'))
         .toString();
@@ -2526,6 +2567,7 @@ class RecurringPayment extends DataClass
     endDate,
     isActive,
     isAutoPay,
+    isUnavoidable,
     description,
   );
   @override
@@ -2543,6 +2585,7 @@ class RecurringPayment extends DataClass
           other.endDate == this.endDate &&
           other.isActive == this.isActive &&
           other.isAutoPay == this.isAutoPay &&
+          other.isUnavoidable == this.isUnavoidable &&
           other.description == this.description);
 }
 
@@ -2558,6 +2601,7 @@ class RecurringPaymentsCompanion extends UpdateCompanion<RecurringPayment> {
   final Value<DateTime?> endDate;
   final Value<bool> isActive;
   final Value<bool> isAutoPay;
+  final Value<bool> isUnavoidable;
   final Value<String> description;
   const RecurringPaymentsCompanion({
     this.id = const Value.absent(),
@@ -2571,6 +2615,7 @@ class RecurringPaymentsCompanion extends UpdateCompanion<RecurringPayment> {
     this.endDate = const Value.absent(),
     this.isActive = const Value.absent(),
     this.isAutoPay = const Value.absent(),
+    this.isUnavoidable = const Value.absent(),
     this.description = const Value.absent(),
   });
   RecurringPaymentsCompanion.insert({
@@ -2585,6 +2630,7 @@ class RecurringPaymentsCompanion extends UpdateCompanion<RecurringPayment> {
     this.endDate = const Value.absent(),
     this.isActive = const Value.absent(),
     this.isAutoPay = const Value.absent(),
+    this.isUnavoidable = const Value.absent(),
     this.description = const Value.absent(),
   }) : name = Value(name),
        amount = Value(amount),
@@ -2602,6 +2648,7 @@ class RecurringPaymentsCompanion extends UpdateCompanion<RecurringPayment> {
     Expression<DateTime>? endDate,
     Expression<bool>? isActive,
     Expression<bool>? isAutoPay,
+    Expression<bool>? isUnavoidable,
     Expression<String>? description,
   }) {
     return RawValuesInsertable({
@@ -2616,6 +2663,7 @@ class RecurringPaymentsCompanion extends UpdateCompanion<RecurringPayment> {
       if (endDate != null) 'end_date': endDate,
       if (isActive != null) 'is_active': isActive,
       if (isAutoPay != null) 'is_auto_pay': isAutoPay,
+      if (isUnavoidable != null) 'is_unavoidable': isUnavoidable,
       if (description != null) 'description': description,
     });
   }
@@ -2632,6 +2680,7 @@ class RecurringPaymentsCompanion extends UpdateCompanion<RecurringPayment> {
     Value<DateTime?>? endDate,
     Value<bool>? isActive,
     Value<bool>? isAutoPay,
+    Value<bool>? isUnavoidable,
     Value<String>? description,
   }) {
     return RecurringPaymentsCompanion(
@@ -2646,6 +2695,7 @@ class RecurringPaymentsCompanion extends UpdateCompanion<RecurringPayment> {
       endDate: endDate ?? this.endDate,
       isActive: isActive ?? this.isActive,
       isAutoPay: isAutoPay ?? this.isAutoPay,
+      isUnavoidable: isUnavoidable ?? this.isUnavoidable,
       description: description ?? this.description,
     );
   }
@@ -2686,6 +2736,9 @@ class RecurringPaymentsCompanion extends UpdateCompanion<RecurringPayment> {
     if (isAutoPay.present) {
       map['is_auto_pay'] = Variable<bool>(isAutoPay.value);
     }
+    if (isUnavoidable.present) {
+      map['is_unavoidable'] = Variable<bool>(isUnavoidable.value);
+    }
     if (description.present) {
       map['description'] = Variable<String>(description.value);
     }
@@ -2706,6 +2759,7 @@ class RecurringPaymentsCompanion extends UpdateCompanion<RecurringPayment> {
           ..write('endDate: $endDate, ')
           ..write('isActive: $isActive, ')
           ..write('isAutoPay: $isAutoPay, ')
+          ..write('isUnavoidable: $isUnavoidable, ')
           ..write('description: $description')
           ..write(')'))
         .toString();
@@ -6802,6 +6856,7 @@ typedef $$RecurringPaymentsTableCreateCompanionBuilder =
       Value<DateTime?> endDate,
       Value<bool> isActive,
       Value<bool> isAutoPay,
+      Value<bool> isUnavoidable,
       Value<String> description,
     });
 typedef $$RecurringPaymentsTableUpdateCompanionBuilder =
@@ -6817,6 +6872,7 @@ typedef $$RecurringPaymentsTableUpdateCompanionBuilder =
       Value<DateTime?> endDate,
       Value<bool> isActive,
       Value<bool> isAutoPay,
+      Value<bool> isUnavoidable,
       Value<String> description,
     });
 
@@ -6944,6 +7000,11 @@ class $$RecurringPaymentsTableFilterComposer
 
   ColumnFilters<bool> get isAutoPay => $composableBuilder(
     column: $table.isAutoPay,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isUnavoidable => $composableBuilder(
+    column: $table.isUnavoidable,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7078,6 +7139,11 @@ class $$RecurringPaymentsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isUnavoidable => $composableBuilder(
+    column: $table.isUnavoidable,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get description => $composableBuilder(
     column: $table.description,
     builder: (column) => ColumnOrderings(column),
@@ -7167,6 +7233,11 @@ class $$RecurringPaymentsTableAnnotationComposer
 
   GeneratedColumn<bool> get isAutoPay =>
       $composableBuilder(column: $table.isAutoPay, builder: (column) => column);
+
+  GeneratedColumn<bool> get isUnavoidable => $composableBuilder(
+    column: $table.isUnavoidable,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get description => $composableBuilder(
     column: $table.description,
@@ -7294,6 +7365,7 @@ class $$RecurringPaymentsTableTableManager
                 Value<DateTime?> endDate = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
                 Value<bool> isAutoPay = const Value.absent(),
+                Value<bool> isUnavoidable = const Value.absent(),
                 Value<String> description = const Value.absent(),
               }) => RecurringPaymentsCompanion(
                 id: id,
@@ -7307,6 +7379,7 @@ class $$RecurringPaymentsTableTableManager
                 endDate: endDate,
                 isActive: isActive,
                 isAutoPay: isAutoPay,
+                isUnavoidable: isUnavoidable,
                 description: description,
               ),
           createCompanionCallback:
@@ -7322,6 +7395,7 @@ class $$RecurringPaymentsTableTableManager
                 Value<DateTime?> endDate = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
                 Value<bool> isAutoPay = const Value.absent(),
+                Value<bool> isUnavoidable = const Value.absent(),
                 Value<String> description = const Value.absent(),
               }) => RecurringPaymentsCompanion.insert(
                 id: id,
@@ -7335,6 +7409,7 @@ class $$RecurringPaymentsTableTableManager
                 endDate: endDate,
                 isActive: isActive,
                 isAutoPay: isAutoPay,
+                isUnavoidable: isUnavoidable,
                 description: description,
               ),
           withReferenceMapper: (p0) => p0

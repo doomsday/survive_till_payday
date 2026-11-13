@@ -25,7 +25,7 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
   static const _backupDirectoryName = 'payday-backups';
   static const _backupPrefix = 'payday-before-import-';
   static const _retainedBackupCount = 6;
-  static const _schemaVersion = 10;
+  static const _schemaVersion = 11;
 
   static const _columnsByTable = <String, List<String>>{
     'accounts': [
@@ -79,6 +79,7 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
       'end_date',
       'is_active',
       'is_auto_pay',
+      'is_unavoidable',
       'description',
     ],
     'payment_occurrences': [
@@ -358,6 +359,7 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
   ) {
     final row = Map<String, Object?>.from(sourceRow);
     if (table == 'accounts') {
+      row.putIfAbsent('display_order', () => 0);
       row.putIfAbsent('is_no_withdrawal', () => 0);
       row.putIfAbsent('is_deposit', () => 0);
     }
@@ -489,6 +491,9 @@ class DatabaseBackupServiceImpl implements DatabaseBackupService {
       }
       if (version < 10 && entry.key == 'accounts') {
         expectedColumns.remove('display_order');
+      }
+      if (version < 11 && entry.key == 'recurring_payments') {
+        expectedColumns.remove('is_unavoidable');
       }
       if (version < 7) {
         if (entry.key == 'accounts') expectedColumns.remove('is_deposit');

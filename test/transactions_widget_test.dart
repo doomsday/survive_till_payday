@@ -151,4 +151,62 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
   });
+
+  testWidgets('date groups show expenses spent on that date', (tester) async {
+    final database = AppDatabase(NativeDatabase.memory());
+    final accountId = await database
+        .into(database.accounts)
+        .insert(AccountsCompanion.insert(name: 'Kaspi'));
+    await database
+        .into(database.transactions)
+        .insert(
+          TransactionsCompanion.insert(
+            accountId: accountId,
+            type: 'EXPENSE',
+            amount: 2500,
+            transactionDate: DateTime(2026, 11, 13, 10),
+          ),
+        );
+    await database
+        .into(database.transactions)
+        .insert(
+          TransactionsCompanion.insert(
+            accountId: accountId,
+            type: 'EXPENSE',
+            amount: 1200,
+            transactionDate: DateTime(2026, 11, 13, 15),
+          ),
+        );
+    await database
+        .into(database.transactions)
+        .insert(
+          TransactionsCompanion.insert(
+            accountId: accountId,
+            type: 'INCOME',
+            amount: 10000,
+            transactionDate: DateTime(2026, 11, 13, 8),
+          ),
+        );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          databaseProvider.overrideWith((ref) {
+            ref.onDispose(database.close);
+            return database;
+          }),
+        ],
+        child: const PaydayApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Операции').last);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Потрачено:'), findsOneWidget);
+    expect(find.text('Потрачено: 3 700 ₸'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
 }

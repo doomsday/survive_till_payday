@@ -97,6 +97,7 @@ void main() {
       amount: 20000,
       frequency: 'MONTHLY',
       startDate: DateTime(2026, 11, 10),
+      isUnavoidable: true,
     );
     await planning.generateOccurrences(now: DateTime(2026, 11, 12));
 
@@ -119,6 +120,12 @@ void main() {
     )..where((row) => row.id.equals(overdue.id))).getSingle();
     expect(updated.status, 'PAID');
     expect(updated.paidAmount, 16339);
+    final transaction =
+        await (database.select(
+              database.transactions,
+            )..where((row) => row.linkedPaymentOccurrenceId.equals(overdue.id)))
+            .getSingle();
+    expect(transaction.isUnavoidable, isTrue);
 
     final next =
         (await (database.select(database.paymentOccurrences)
@@ -394,6 +401,7 @@ void main() {
               frequency: 'MONTHLY',
               startDate: today,
               isAutoPay: const Value(true),
+              isUnavoidable: const Value(true),
             ),
           );
       final occurrenceId = await database
@@ -442,6 +450,7 @@ void main() {
       expect(occurrence.paidAmount, 14000);
       expect(allAutoTransactions, hasLength(2));
       expect(transactions.single.amount, 10000);
+      expect(transactions.single.isUnavoidable, isTrue);
       expect(transactions.single.categoryId, category.id);
       expect(transactions.single.transactionDate, DateTime(2026, 11, 2));
       expect(account.currentBalance, 31000);

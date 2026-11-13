@@ -53,7 +53,9 @@ void main() {
     final payment =
         (await database.select(database.recurringPayments).get()).single;
     expect(payment.isAutoPay, isTrue);
+    expect(payment.isUnavoidable, isTrue);
     expect(payment.accountId, accountId);
+    expect(find.text('Автооплата, неизбежная трата'), findsOneWidget);
     final category = await (database.select(
       database.categories,
     )..where((row) => row.id.equals(payment.categoryId!))).getSingle();
@@ -80,8 +82,12 @@ void main() {
       ),
       findsOneWidget,
     );
-    await tester.tap(find.text('Отмена'));
+    final autoPaySwitchInEdit = find.byType(SwitchListTile).first;
+    tester.widget<SwitchListTile>(autoPaySwitchInEdit).onChanged!(false);
+    await tester.tap(find.text('Сохранить'));
     await tester.pumpAndSettle();
+    expect(find.text('Автооплата'), findsNothing);
+    expect(find.text('Неизбежная трата'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
