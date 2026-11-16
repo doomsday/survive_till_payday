@@ -118,6 +118,7 @@ void main() {
       47500,
     );
     expect(find.text('Покупка продуктов'), findsOneWidget);
+    expect(find.byIcon(Icons.drag_handle), findsOneWidget);
 
     await tester.enterText(
       find.widgetWithText(TextField, 'Поиск по описанию, счету, категории'),

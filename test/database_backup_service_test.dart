@@ -52,7 +52,9 @@ void main() {
           .get()
           .then((rows) => rows.length);
       final snapshot = await service.createSnapshot();
-      expect(await service.inspectImport(snapshot), isA<BackupComparison>());
+      final comparison = await service.inspectImport(snapshot);
+      expect(comparison, isA<BackupComparison>());
+      expect(database.schemaVersion, 12);
       await (database.update(database.accounts)
             ..where((account) => account.id.equals(accountId)))
           .write(const AccountsCompanion(name: Value('Измененный счет')));

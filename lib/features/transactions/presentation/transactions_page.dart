@@ -220,47 +220,40 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                           : 0;
                       return KeyedSubtree(
                         key: ValueKey(entry.transaction.id),
-                        child: ReorderableDragStartListener(
-                          index: index,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (showDate)
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    8,
-                                    18,
-                                    8,
-                                    6,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          _monthDate.format(
-                                            entry.transaction.transactionDate,
-                                          ),
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleSmall,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (showDate)
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(8, 18, 8, 6),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        _monthDate.format(
+                                          entry.transaction.transactionDate,
                                         ),
-                                      ),
-                                      Text(
-                                        'Потрачено: ${_money.format(dailyExpense)}',
                                         style: Theme.of(context)
                                             .textTheme
-                                            .bodySmall,
+                                            .titleSmall,
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                    Text(
+                                      'Потрачено: ${_money.format(dailyExpense)}',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall,
+                                    ),
+                                  ],
                                 ),
-                              _TransactionTile(
-                                entry: entry,
-                                onEdit: () => _editTransaction(entry),
-                                onDelete: () => _deleteTransaction(entry),
                               ),
-                            ],
-                          ),
+                            _TransactionTile(
+                              entry: entry,
+                              reorderIndex: index,
+                              onEdit: () => _editTransaction(entry),
+                              onDelete: () => _deleteTransaction(entry),
+                            ),
+                          ],
                         ),
                       );
                     },
@@ -654,10 +647,12 @@ class _SummaryValue extends StatelessWidget {
 class _TransactionTile extends StatelessWidget {
   const _TransactionTile({
     required this.entry,
+    required this.reorderIndex,
     required this.onEdit,
     required this.onDelete,
   });
   final TransactionEntry entry;
+  final int reorderIndex;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -666,11 +661,13 @@ class _TransactionTile extends StatelessWidget {
     final transaction = entry.transaction;
     final income = transaction.type == 'INCOME';
     final transfer = transaction.type == 'TRANSFER';
+    final accountColor = Color(entry.accountColor);
     final color = transfer
-        ? Theme.of(context).colorScheme.tertiary
-        : income
-        ? Theme.of(context).colorScheme.primary
-        : Theme.of(context).colorScheme.error;
+        ? Color.alphaBlend(
+            accountColor.withValues(alpha: 0.45),
+            Theme.of(context).colorScheme.tertiary,
+          )
+        : accountColor;
     final title = transfer && entry.transferPeerAccountName != null
         ? entry.isTransferSource
               ? '${entry.accountName} → ${entry.transferPeerAccountName}'
@@ -683,6 +680,7 @@ class _TransactionTile extends StatelessWidget {
         : '−';
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 3),
+      color: accountColor.withValues(alpha: 0.08),
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: color.withValues(alpha: 0.12),
@@ -724,6 +722,10 @@ class _TransactionTile extends StatelessWidget {
                 PopupMenuItem(value: 'edit', child: Text('Изменить')),
                 PopupMenuItem(value: 'delete', child: Text('Удалить')),
               ],
+            ),
+            ReorderableDragStartListener(
+              index: reorderIndex,
+              child: const Icon(Icons.drag_handle),
             ),
           ],
         ),

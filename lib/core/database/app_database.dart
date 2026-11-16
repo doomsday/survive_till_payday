@@ -13,6 +13,7 @@ class Accounts extends Table {
   IntColumn get displayOrder => integer().withDefault(const Constant(0))();
   TextColumn get type => text().withDefault(const Constant('BANK'))();
   TextColumn get currency => text().withDefault(const Constant('KZT'))();
+  IntColumn get color => integer().withDefault(const Constant(0xFF607D8B))();
   BoolColumn get isNoWithdrawal =>
       boolean().withDefault(const Constant(false))();
   BoolColumn get isDeposit => boolean().withDefault(const Constant(false))();
@@ -171,7 +172,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   static const historyTables = {
     'accounts': [
@@ -180,6 +181,7 @@ class AppDatabase extends _$AppDatabase {
       'display_order',
       'type',
       'currency',
+      'color',
       'is_no_withdrawal',
       'is_deposit',
       'initial_balance',
@@ -259,6 +261,12 @@ class AppDatabase extends _$AppDatabase {
     onUpgrade: (m, from, to) async {
       if (from < 3) {
         await m.addColumn(recurringPayments, recurringPayments.isAutoPay);
+      }
+      if (from < 12) {
+        final columns = await customSelect('PRAGMA table_info(accounts)').get();
+        if (!columns.any((column) => column.read<String>('name') == 'color')) {
+          await m.addColumn(accounts, accounts.color);
+        }
       }
       if (from < 4) await m.createTable(backupImportIdentities);
       if (from < 5) {

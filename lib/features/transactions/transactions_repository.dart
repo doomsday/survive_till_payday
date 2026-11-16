@@ -29,6 +29,7 @@ class TransactionEntry {
     required this.accountName,
     required this.categoryName,
     required this.categoryColor,
+    required this.accountColor,
     this.transferPeerAccountName,
     this.transferPeerAccountId,
     this.isTransferSource = false,
@@ -38,6 +39,7 @@ class TransactionEntry {
   final String accountName;
   final String? categoryName;
   final int? categoryColor;
+  final int accountColor;
   final String? transferPeerAccountName;
   final int? transferPeerAccountId;
   final bool isTransferSource;
@@ -164,6 +166,9 @@ class TransactionsRepository {
                             categoryById[transaction.categoryId]?.name,
                         categoryColor:
                             categoryById[transaction.categoryId]?.color,
+                        accountColor:
+                            accountById[transaction.accountId]?.color ??
+                            0xFF607D8B,
                         transferPeerAccountName: _transferPeer(
                           transaction,
                           transfers,

@@ -34,6 +34,7 @@ class AccountsRepository {
     String type = 'BANK',
     bool isNoWithdrawal = false,
     bool isDeposit = false,
+    int color = 0xFF607D8B,
   }) {
     _validate(name, type, initialBalance);
     return _database.transaction(() async {
@@ -53,6 +54,7 @@ class AccountsRepository {
               type: Value(type),
               isNoWithdrawal: Value(isNoWithdrawal),
               isDeposit: Value(isDeposit),
+              color: Value(color),
               initialBalance: Value(initialBalance),
               currentBalance: Value(initialBalance),
             ),
@@ -68,6 +70,7 @@ class AccountsRepository {
     required int currentBalance,
     required bool isNoWithdrawal,
     required bool isDeposit,
+    int color = 0xFF607D8B,
   }) async {
     _validate(name, type, initialBalance);
     await _database.transaction(() async {
@@ -80,6 +83,7 @@ class AccountsRepository {
               type: Value(type),
               isNoWithdrawal: Value(isNoWithdrawal),
               isDeposit: Value(isDeposit),
+              color: Value(color),
               initialBalance: Value(initialBalance),
               currentBalance: Value(currentBalance),
             ),

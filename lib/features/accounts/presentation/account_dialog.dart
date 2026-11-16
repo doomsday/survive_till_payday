@@ -12,6 +12,17 @@ final _money = NumberFormat.currency(
   decimalDigits: 0,
 );
 
+const _accountColors = [
+  Color(0xFF607D8B),
+  Color(0xFF3F51B5),
+  Color(0xFF00897B),
+  Color(0xFF2E7D32),
+  Color(0xFFF57C00),
+  Color(0xFFC62828),
+  Color(0xFF8E24AA),
+  Color(0xFF6D4C41),
+];
+
 Future<void> showCreateAccountDialog(
   BuildContext context,
   WidgetRef ref,
@@ -53,6 +64,7 @@ class _AccountDialogState extends ConsumerState<_AccountDialog> {
   late String _type;
   late bool _isNoWithdrawal;
   late bool _isDeposit;
+  late int _color;
   String? _error;
   bool _saving = false;
 
@@ -64,6 +76,7 @@ class _AccountDialogState extends ConsumerState<_AccountDialog> {
     _type = account?.type ?? 'BANK';
     _isNoWithdrawal = account?.isNoWithdrawal ?? false;
     _isDeposit = account?.isDeposit ?? false;
+    _color = account?.color ?? _accountColors.first.toARGB32();
     _initialBalance = TextEditingController(
       text: '${account?.initialBalance ?? 0}',
     );
@@ -92,6 +105,32 @@ class _AccountDialogState extends ConsumerState<_AccountDialog> {
             autofocus: widget.account == null,
             textCapitalization: TextCapitalization.sentences,
             decoration: const InputDecoration(labelText: 'Название'),
+          ),
+          const SizedBox(height: 12),
+          InputDecorator(
+            decoration: const InputDecoration(labelText: 'Цвет'),
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              children: [
+                for (final color in _accountColors)
+                  InkWell(
+                    onTap: () => setState(() => _color = color.toARGB32()),
+                    borderRadius: BorderRadius.circular(20),
+                    child: CircleAvatar(
+                      radius: 16,
+                      backgroundColor: color,
+                      child: _color == color.toARGB32()
+                          ? const Icon(
+                              Icons.check,
+                              color: Colors.white,
+                              size: 18,
+                            )
+                          : null,
+                    ),
+                  ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
@@ -201,6 +240,7 @@ class _AccountDialogState extends ConsumerState<_AccountDialog> {
           initialBalance: initialBalance,
           isNoWithdrawal: _isNoWithdrawal,
           isDeposit: _isDeposit,
+          color: _color,
         );
       } else {
         await repository.update(
@@ -211,6 +251,7 @@ class _AccountDialogState extends ConsumerState<_AccountDialog> {
           currentBalance: currentBalance!,
           isNoWithdrawal: _isNoWithdrawal,
           isDeposit: _isDeposit,
+          color: _color,
         );
       }
       ref.invalidate(allAccountsProvider);

@@ -68,6 +68,16 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
     requiredDuringInsert: false,
     defaultValue: const Constant('KZT'),
   );
+  static const VerificationMeta _colorMeta = const VerificationMeta('color');
+  @override
+  late final GeneratedColumn<int> color = GeneratedColumn<int>(
+    'color',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0xFF607D8B),
+  );
   static const VerificationMeta _isNoWithdrawalMeta = const VerificationMeta(
     'isNoWithdrawal',
   );
@@ -156,6 +166,7 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
     displayOrder,
     type,
     currency,
+    color,
     isNoWithdrawal,
     isDeposit,
     initialBalance,
@@ -205,6 +216,12 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
       context.handle(
         _currencyMeta,
         currency.isAcceptableOrUnknown(data['currency']!, _currencyMeta),
+      );
+    }
+    if (data.containsKey('color')) {
+      context.handle(
+        _colorMeta,
+        color.isAcceptableOrUnknown(data['color']!, _colorMeta),
       );
     }
     if (data.containsKey('is_no_withdrawal')) {
@@ -281,6 +298,10 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
         DriftSqlType.string,
         data['${effectivePrefix}currency'],
       )!,
+      color: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}color'],
+      )!,
       isNoWithdrawal: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_no_withdrawal'],
@@ -320,6 +341,7 @@ class Account extends DataClass implements Insertable<Account> {
   final int displayOrder;
   final String type;
   final String currency;
+  final int color;
   final bool isNoWithdrawal;
   final bool isDeposit;
   final int initialBalance;
@@ -332,6 +354,7 @@ class Account extends DataClass implements Insertable<Account> {
     required this.displayOrder,
     required this.type,
     required this.currency,
+    required this.color,
     required this.isNoWithdrawal,
     required this.isDeposit,
     required this.initialBalance,
@@ -347,6 +370,7 @@ class Account extends DataClass implements Insertable<Account> {
     map['display_order'] = Variable<int>(displayOrder);
     map['type'] = Variable<String>(type);
     map['currency'] = Variable<String>(currency);
+    map['color'] = Variable<int>(color);
     map['is_no_withdrawal'] = Variable<bool>(isNoWithdrawal);
     map['is_deposit'] = Variable<bool>(isDeposit);
     map['initial_balance'] = Variable<int>(initialBalance);
@@ -363,6 +387,7 @@ class Account extends DataClass implements Insertable<Account> {
       displayOrder: Value(displayOrder),
       type: Value(type),
       currency: Value(currency),
+      color: Value(color),
       isNoWithdrawal: Value(isNoWithdrawal),
       isDeposit: Value(isDeposit),
       initialBalance: Value(initialBalance),
@@ -383,6 +408,7 @@ class Account extends DataClass implements Insertable<Account> {
       displayOrder: serializer.fromJson<int>(json['displayOrder']),
       type: serializer.fromJson<String>(json['type']),
       currency: serializer.fromJson<String>(json['currency']),
+      color: serializer.fromJson<int>(json['color']),
       isNoWithdrawal: serializer.fromJson<bool>(json['isNoWithdrawal']),
       isDeposit: serializer.fromJson<bool>(json['isDeposit']),
       initialBalance: serializer.fromJson<int>(json['initialBalance']),
@@ -400,6 +426,7 @@ class Account extends DataClass implements Insertable<Account> {
       'displayOrder': serializer.toJson<int>(displayOrder),
       'type': serializer.toJson<String>(type),
       'currency': serializer.toJson<String>(currency),
+      'color': serializer.toJson<int>(color),
       'isNoWithdrawal': serializer.toJson<bool>(isNoWithdrawal),
       'isDeposit': serializer.toJson<bool>(isDeposit),
       'initialBalance': serializer.toJson<int>(initialBalance),
@@ -415,6 +442,7 @@ class Account extends DataClass implements Insertable<Account> {
     int? displayOrder,
     String? type,
     String? currency,
+    int? color,
     bool? isNoWithdrawal,
     bool? isDeposit,
     int? initialBalance,
@@ -427,6 +455,7 @@ class Account extends DataClass implements Insertable<Account> {
     displayOrder: displayOrder ?? this.displayOrder,
     type: type ?? this.type,
     currency: currency ?? this.currency,
+    color: color ?? this.color,
     isNoWithdrawal: isNoWithdrawal ?? this.isNoWithdrawal,
     isDeposit: isDeposit ?? this.isDeposit,
     initialBalance: initialBalance ?? this.initialBalance,
@@ -443,6 +472,7 @@ class Account extends DataClass implements Insertable<Account> {
           : this.displayOrder,
       type: data.type.present ? data.type.value : this.type,
       currency: data.currency.present ? data.currency.value : this.currency,
+      color: data.color.present ? data.color.value : this.color,
       isNoWithdrawal: data.isNoWithdrawal.present
           ? data.isNoWithdrawal.value
           : this.isNoWithdrawal,
@@ -466,6 +496,7 @@ class Account extends DataClass implements Insertable<Account> {
           ..write('displayOrder: $displayOrder, ')
           ..write('type: $type, ')
           ..write('currency: $currency, ')
+          ..write('color: $color, ')
           ..write('isNoWithdrawal: $isNoWithdrawal, ')
           ..write('isDeposit: $isDeposit, ')
           ..write('initialBalance: $initialBalance, ')
@@ -483,6 +514,7 @@ class Account extends DataClass implements Insertable<Account> {
     displayOrder,
     type,
     currency,
+    color,
     isNoWithdrawal,
     isDeposit,
     initialBalance,
@@ -499,6 +531,7 @@ class Account extends DataClass implements Insertable<Account> {
           other.displayOrder == this.displayOrder &&
           other.type == this.type &&
           other.currency == this.currency &&
+          other.color == this.color &&
           other.isNoWithdrawal == this.isNoWithdrawal &&
           other.isDeposit == this.isDeposit &&
           other.initialBalance == this.initialBalance &&
@@ -513,6 +546,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
   final Value<int> displayOrder;
   final Value<String> type;
   final Value<String> currency;
+  final Value<int> color;
   final Value<bool> isNoWithdrawal;
   final Value<bool> isDeposit;
   final Value<int> initialBalance;
@@ -525,6 +559,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     this.displayOrder = const Value.absent(),
     this.type = const Value.absent(),
     this.currency = const Value.absent(),
+    this.color = const Value.absent(),
     this.isNoWithdrawal = const Value.absent(),
     this.isDeposit = const Value.absent(),
     this.initialBalance = const Value.absent(),
@@ -538,6 +573,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     this.displayOrder = const Value.absent(),
     this.type = const Value.absent(),
     this.currency = const Value.absent(),
+    this.color = const Value.absent(),
     this.isNoWithdrawal = const Value.absent(),
     this.isDeposit = const Value.absent(),
     this.initialBalance = const Value.absent(),
@@ -551,6 +587,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     Expression<int>? displayOrder,
     Expression<String>? type,
     Expression<String>? currency,
+    Expression<int>? color,
     Expression<bool>? isNoWithdrawal,
     Expression<bool>? isDeposit,
     Expression<int>? initialBalance,
@@ -564,6 +601,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
       if (displayOrder != null) 'display_order': displayOrder,
       if (type != null) 'type': type,
       if (currency != null) 'currency': currency,
+      if (color != null) 'color': color,
       if (isNoWithdrawal != null) 'is_no_withdrawal': isNoWithdrawal,
       if (isDeposit != null) 'is_deposit': isDeposit,
       if (initialBalance != null) 'initial_balance': initialBalance,
@@ -579,6 +617,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     Value<int>? displayOrder,
     Value<String>? type,
     Value<String>? currency,
+    Value<int>? color,
     Value<bool>? isNoWithdrawal,
     Value<bool>? isDeposit,
     Value<int>? initialBalance,
@@ -592,6 +631,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
       displayOrder: displayOrder ?? this.displayOrder,
       type: type ?? this.type,
       currency: currency ?? this.currency,
+      color: color ?? this.color,
       isNoWithdrawal: isNoWithdrawal ?? this.isNoWithdrawal,
       isDeposit: isDeposit ?? this.isDeposit,
       initialBalance: initialBalance ?? this.initialBalance,
@@ -618,6 +658,9 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     }
     if (currency.present) {
       map['currency'] = Variable<String>(currency.value);
+    }
+    if (color.present) {
+      map['color'] = Variable<int>(color.value);
     }
     if (isNoWithdrawal.present) {
       map['is_no_withdrawal'] = Variable<bool>(isNoWithdrawal.value);
@@ -648,6 +691,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
           ..write('displayOrder: $displayOrder, ')
           ..write('type: $type, ')
           ..write('currency: $currency, ')
+          ..write('color: $color, ')
           ..write('isNoWithdrawal: $isNoWithdrawal, ')
           ..write('isDeposit: $isDeposit, ')
           ..write('initialBalance: $initialBalance, ')
@@ -5300,6 +5344,7 @@ typedef $$AccountsTableCreateCompanionBuilder = AccountsCompanion Function({
   Value<int> displayOrder,
   Value<String> type,
   Value<String> currency,
+  Value<int> color,
   Value<bool> isNoWithdrawal,
   Value<bool> isDeposit,
   Value<int> initialBalance,
@@ -5313,6 +5358,7 @@ typedef $$AccountsTableUpdateCompanionBuilder = AccountsCompanion Function({
   Value<int> displayOrder,
   Value<String> type,
   Value<String> currency,
+  Value<int> color,
   Value<bool> isNoWithdrawal,
   Value<bool> isDeposit,
   Value<int> initialBalance,
@@ -5396,6 +5442,11 @@ class $$AccountsTableFilterComposer
 
   ColumnFilters<String> get currency => $composableBuilder(
     column: $table.currency,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get color => $composableBuilder(
+    column: $table.color,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5514,6 +5565,11 @@ class $$AccountsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get color => $composableBuilder(
+    column: $table.color,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isNoWithdrawal => $composableBuilder(
     column: $table.isNoWithdrawal,
     builder: (column) => ColumnOrderings(column),
@@ -5570,6 +5626,9 @@ class $$AccountsTableAnnotationComposer
 
   GeneratedColumn<String> get currency =>
       $composableBuilder(column: $table.currency, builder: (column) => column);
+
+  GeneratedColumn<int> get color =>
+      $composableBuilder(column: $table.color, builder: (column) => column);
 
   GeneratedColumn<bool> get isNoWithdrawal => $composableBuilder(
     column: $table.isNoWithdrawal,
@@ -5683,6 +5742,7 @@ class $$AccountsTableTableManager
                 Value<int> displayOrder = const Value.absent(),
                 Value<String> type = const Value.absent(),
                 Value<String> currency = const Value.absent(),
+                Value<int> color = const Value.absent(),
                 Value<bool> isNoWithdrawal = const Value.absent(),
                 Value<bool> isDeposit = const Value.absent(),
                 Value<int> initialBalance = const Value.absent(),
@@ -5695,6 +5755,7 @@ class $$AccountsTableTableManager
                 displayOrder: displayOrder,
                 type: type,
                 currency: currency,
+                color: color,
                 isNoWithdrawal: isNoWithdrawal,
                 isDeposit: isDeposit,
                 initialBalance: initialBalance,
@@ -5709,6 +5770,7 @@ class $$AccountsTableTableManager
                 Value<int> displayOrder = const Value.absent(),
                 Value<String> type = const Value.absent(),
                 Value<String> currency = const Value.absent(),
+                Value<int> color = const Value.absent(),
                 Value<bool> isNoWithdrawal = const Value.absent(),
                 Value<bool> isDeposit = const Value.absent(),
                 Value<int> initialBalance = const Value.absent(),
@@ -5721,6 +5783,7 @@ class $$AccountsTableTableManager
                 displayOrder: displayOrder,
                 type: type,
                 currency: currency,
+                color: color,
                 isNoWithdrawal: isNoWithdrawal,
                 isDeposit: isDeposit,
                 initialBalance: initialBalance,
