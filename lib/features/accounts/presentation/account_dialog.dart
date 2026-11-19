@@ -59,7 +59,6 @@ class _AccountDialog extends ConsumerStatefulWidget {
 
 class _AccountDialogState extends ConsumerState<_AccountDialog> {
   final _name = TextEditingController();
-  late final TextEditingController _initialBalance;
   late final TextEditingController _currentBalance;
   late String _type;
   late bool _isNoWithdrawal;
@@ -77,20 +76,30 @@ class _AccountDialogState extends ConsumerState<_AccountDialog> {
     _isNoWithdrawal = account?.isNoWithdrawal ?? false;
     _isDeposit = account?.isDeposit ?? false;
     _color = account?.color ?? _accountColors.first.toARGB32();
-    _initialBalance = TextEditingController(
-      text: '${account?.initialBalance ?? 0}',
-    );
     _currentBalance = TextEditingController(
-      text: '${account?.currentBalance ?? 0}',
+      text: '${account?.currentBalance ?? account?.initialBalance ?? 0}',
     );
   }
 
   @override
   void dispose() {
     _name.dispose();
-    _initialBalance.dispose();
     _currentBalance.dispose();
     super.dispose();
+  }
+
+  Future<void> _showAddAmountDialog() async {
+    final result = await showDialog<int>(
+      context: context,
+      builder: (_) => const _AddBalanceDialog(),
+    );
+
+    if (result != null && mounted) {
+      final current = int.tryParse(_currentBalance.text.trim()) ?? 0;
+      setState(() {
+        _currentBalance.text = '${current + result}';
+      });
+    }
   }
 
   @override
@@ -168,26 +177,18 @@ class _AccountDialogState extends ConsumerState<_AccountDialog> {
           ),
           const SizedBox(height: 12),
           TextField(
-            controller: _initialBalance,
-            keyboardType: TextInputType.number,
+            controller: _currentBalance,
+            keyboardType: const TextInputType.numberWithOptions(signed: true),
             decoration: InputDecoration(
-              labelText: widget.account == null
-                  ? 'Текущий остаток'
-                  : 'Начальный остаток',
+              labelText: 'Текущий остаток',
               suffixText: '₸',
-            ),
-          ),
-          if (widget.account != null) ...[
-            const SizedBox(height: 12),
-            TextField(
-              controller: _currentBalance,
-              keyboardType: const TextInputType.numberWithOptions(signed: true),
-              decoration: const InputDecoration(
-                labelText: 'Текущий остаток',
-                suffixText: '₸',
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.add),
+                tooltip: 'Прибавить сумму',
+                onPressed: _showAddAmountDialog,
               ),
             ),
-          ],
+          ),
           if (_error != null)
             Padding(
               padding: const EdgeInsets.only(top: 8),
@@ -217,13 +218,11 @@ class _AccountDialogState extends ConsumerState<_AccountDialog> {
   );
 
   Future<void> _save() async {
-    final initialBalance = int.tryParse(_initialBalance.text.trim());
-    final currentBalance = int.tryParse(_currentBalance.text.trim());
+    final balance = int.tryParse(_currentBalance.text.trim());
     if (_name.text.trim().isEmpty ||
-        initialBalance == null ||
-        initialBalance < 0 ||
-        (widget.account != null && currentBalance == null)) {
-      setState(() => _error = 'Укажите название и корректные остатки');
+        balance == null ||
+        (widget.account == null && balance < 0)) {
+      setState(() => _error = 'Укажите название и корректный остаток');
       return;
     }
     setState(() {
@@ -237,7 +236,7 @@ class _AccountDialogState extends ConsumerState<_AccountDialog> {
         await repository.create(
           name: _name.text,
           type: _type,
-          initialBalance: initialBalance,
+          initialBalance: balance,
           isNoWithdrawal: _isNoWithdrawal,
           isDeposit: _isDeposit,
           color: _color,
@@ -247,8 +246,8 @@ class _AccountDialogState extends ConsumerState<_AccountDialog> {
           id: account.id,
           name: _name.text,
           type: _type,
-          initialBalance: initialBalance,
-          currentBalance: currentBalance!,
+          initialBalance: account.initialBalance,
+          currentBalance: balance,
           isNoWithdrawal: _isNoWithdrawal,
           isDeposit: _isDeposit,
           color: _color,
@@ -266,6 +265,79 @@ class _AccountDialogState extends ConsumerState<_AccountDialog> {
       }
     }
   }
+}
+
+class _AddBalanceDialog extends StatefulWidget {
+  const _AddBalanceDialog();
+
+  @override
+  State<_AddBalanceDialog> createState() => _AddBalanceDialogState();
+}
+
+class _AddBalanceDialogState extends State<_AddBalanceDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Прибавить к остатку'),
+    content: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: _controller,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(signed: true),
+          decoration: const InputDecoration(
+            labelText: 'Сумма',
+            suffixText: '₸',
+          ),
+          onSubmitted: (value) {
+            final amount = int.tryParse(value.trim());
+            if (amount != null && amount != 0) {
+              Navigator.pop(context, amount);
+            }
+          },
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final delta in [1000, 5000, 10000, 50000, 100000])
+              ActionChip(
+                label: Text('+${_money.format(delta)}'),
+                onPressed: () {
+                  final current = int.tryParse(_controller.text.trim()) ?? 0;
+                  _controller.text = '${current + delta}';
+                },
+              ),
+          ],
+        ),
+      ],
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Отмена'),
+      ),
+      FilledButton(
+        onPressed: () {
+          final amount = int.tryParse(_controller.text.trim());
+          if (amount != null) {
+            Navigator.pop(context, amount);
+          }
+        },
+        child: const Text('Прибавить'),
+      ),
+    ],
+  );
 }
 
 class AccountsSettingsSection extends ConsumerStatefulWidget {

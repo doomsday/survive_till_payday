@@ -260,7 +260,13 @@ class AppDatabase extends _$AppDatabase {
     },
     onUpgrade: (m, from, to) async {
       if (from < 3) {
-        await m.addColumn(recurringPayments, recurringPayments.isAutoPay);
+        final columns =
+            await customSelect('PRAGMA table_info(recurring_payments)').get();
+        if (!columns.any(
+          (column) => column.read<String>('name') == 'is_auto_pay',
+        )) {
+          await m.addColumn(recurringPayments, recurringPayments.isAutoPay);
+        }
       }
       if (from < 12) {
         final columns = await customSelect('PRAGMA table_info(accounts)').get();
@@ -273,19 +279,50 @@ class AppDatabase extends _$AppDatabase {
         await m.createTable(databaseMetadata);
         await _ensureMetadata();
       }
-      if (from < 6) await m.addColumn(accounts, accounts.isNoWithdrawal);
+      if (from < 6) {
+        final columns = await customSelect('PRAGMA table_info(accounts)').get();
+        if (!columns.any(
+          (column) => column.read<String>('name') == 'is_no_withdrawal',
+        )) {
+          await m.addColumn(accounts, accounts.isNoWithdrawal);
+        }
+      }
       if (from < 7) {
-        await m.addColumn(accounts, accounts.isDeposit);
-        await m.addColumn(categories, categories.isHidden);
+        final columns = await customSelect('PRAGMA table_info(accounts)').get();
+        if (!columns.any(
+          (column) => column.read<String>('name') == 'is_deposit',
+        )) {
+          await m.addColumn(accounts, accounts.isDeposit);
+        }
+        final catColumns =
+            await customSelect('PRAGMA table_info(categories)').get();
+        if (!catColumns.any(
+          (column) => column.read<String>('name') == 'is_hidden',
+        )) {
+          await m.addColumn(categories, categories.isHidden);
+        }
         await ensureDepositTransferCategory();
       }
-      if (from < 8) await m.addColumn(transactions, transactions.isUnavoidable);
+      if (from < 8) {
+        final columns =
+            await customSelect('PRAGMA table_info(transactions)').get();
+        if (!columns.any(
+          (column) => column.read<String>('name') == 'is_unavoidable',
+        )) {
+          await m.addColumn(transactions, transactions.isUnavoidable);
+        }
+      }
       if (from < 9) {
         await m.createTable(databaseHistoryChanges);
         await m.createTable(databaseHistoryMetadata);
       }
       if (from < 10) {
-        await m.addColumn(accounts, accounts.displayOrder);
+        final columns = await customSelect('PRAGMA table_info(accounts)').get();
+        if (!columns.any(
+          (column) => column.read<String>('name') == 'display_order',
+        )) {
+          await m.addColumn(accounts, accounts.displayOrder);
+        }
         final existing = await (select(
           accounts,
         )..orderBy([(account) => OrderingTerm.asc(account.name)])).get();
@@ -296,7 +333,13 @@ class AppDatabase extends _$AppDatabase {
         }
       }
       if (from < 11) {
-        await m.addColumn(recurringPayments, recurringPayments.isUnavoidable);
+        final columns =
+            await customSelect('PRAGMA table_info(recurring_payments)').get();
+        if (!columns.any(
+          (column) => column.read<String>('name') == 'is_unavoidable',
+        )) {
+          await m.addColumn(recurringPayments, recurringPayments.isUnavoidable);
+        }
       }
       if (from < 2) await _seedDefaultCategories();
     },

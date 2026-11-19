@@ -44,3 +44,17 @@ flutter pub get
 flutter analyze
 flutter test
 ```
+
+### Running on Linux with software rendering
+
+If the app window is mostly black or the interface is clipped, run this from
+the project root:
+
+```shell
+FLUTTER_LINUX_RENDERER=software flutter run -d linux --no-enable-impeller
+```
+
+When launching from an IDE, select the Linux device, set
+`FLUTTER_LINUX_RENDERER=software` in the run configuration's environment
+variables, and add `--no-enable-impeller` to the Flutter run arguments. Do not
+pass the environment variable as a run argument.

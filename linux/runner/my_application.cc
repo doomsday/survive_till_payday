@@ -61,9 +61,15 @@ static void my_application_activate(GApplication* application) {
   FlView* view = fl_view_new(project);
   GdkRGBA background_color;
   // Background defaults to black, override it here if necessary, e.g. #00000000
-  // for transparent.
   gdk_rgba_parse(&background_color, "#000000");
   fl_view_set_background_color(view, &background_color);
+  // The window must give the Flutter view all available space. Without these
+  // flags GTK can keep the child at its intrinsic size, leaving the rest of
+  // the desktop window black and clipping the Flutter layout.
+  gtk_widget_set_hexpand(GTK_WIDGET(view), TRUE);
+  gtk_widget_set_vexpand(GTK_WIDGET(view), TRUE);
+  gtk_widget_set_halign(GTK_WIDGET(view), GTK_ALIGN_FILL);
+  gtk_widget_set_valign(GTK_WIDGET(view), GTK_ALIGN_FILL);
   gtk_widget_show(GTK_WIDGET(view));
   gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
 
